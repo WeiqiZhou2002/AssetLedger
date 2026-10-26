@@ -223,16 +223,33 @@ export async function exchangeConnection(
         institution_id: z.string().max(200).nullable(),
         name: z.string().min(1).max(200),
       }),
+      allowDuplicate: z.boolean().default(false),
     })
     .strict()
     .parse(input);
   const today = await ownerSyncDate(db, ownerId, now);
   const importFromDate = historyStart(config, today);
   invariant(importFromDate <= today, "历史起点不能晚于本地今天");
+  if (!data.allowDuplicate && data.institution.institution_id) {
+    const [duplicate] = await db
+      .select({ id: bankConnections.id })
+      .from(bankConnections)
+      .where(
+        and(
+          eq(bankConnections.ownerId, ownerId),
+          eq(bankConnections.environment, config.PLAID_ENV),
+          eq(bankConnections.institutionId, data.institution.institution_id),
+          ne(bankConnections.status, "revoked"),
+        ),
+      )
+      .limit(1);
+    invariant(!duplicate, "这家银行已连接；请重新授权已有连接，或明确选择仍然添加", 409);
+  }
+  // Keep the remote exchange outside database transactions; concurrent links may pass the read guard.
   const exchanged = await client.exchange(data.public_token);
-  // Persist the encrypted credential before a subsequent network request can fail, so the Item is recoverable/removable.
   const connection = await db.transaction(async (tx) => {
     await importLock(tx, ownerId);
+    // Persist before the accounts request, so a failed refresh leaves a recoverable Item.
     const [row] = await tx
       .insert(bankConnections)
       .values({
@@ -261,6 +278,8 @@ export async function exchangeConnection(
             ),
           );
     await auditLedger(tx, ownerId, "bank_connection", existing.id, "bank.exchange");
+    if (data.allowDuplicate)
+      await auditLedger(tx, ownerId, "bank_connection", existing.id, "bank.duplicate_override");
     return existing;
   });
   await refreshConnection(db, ownerId, connection.id, client, config, now);

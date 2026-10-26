@@ -16,6 +16,7 @@ import { listCategories } from "@/lib/ledger/categories";
 import { PendingView, TransferSuggestions } from "@/components/bank-sync/pending-view";
 import { transferSuggestions } from "@/lib/bank-sync/transfer-suggestions";
 import { listResetExports } from "@/lib/bank-sync/reset-files";
+import { ConnectionTransfer } from "@/components/bank-sync/connection-transfer";
 export const metadata = { title: "导入与同步" };
 export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const user = await requireUser();
@@ -97,6 +98,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
               </ul>
             </section>
           ) : null}
+          <ConnectionTransfer totpEnabled={Boolean(user.totpEnabledAt)} />
         </div>
       ) : (
         <div className="space-y-6">

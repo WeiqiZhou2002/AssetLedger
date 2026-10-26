@@ -2,11 +2,13 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { PlaidLinkOptions } from "react-plaid-link";
 import { LinkLaunch, LINK_STORAGE } from "@/components/bank-sync/link";
+import { DuplicateChoices } from "@/components/bank-sync/duplicate-choices";
 
-const { router, request, removeItem } = vi.hoisted(() => ({
+const { router, request, removeItem, exit } = vi.hoisted(() => ({
   router: { push: vi.fn(), refresh: vi.fn(), replace: vi.fn() },
   request: vi.fn(),
   removeItem: vi.fn(),
+  exit: vi.fn(),
 }));
 let options: PlaidLinkOptions;
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -15,7 +17,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("react-plaid-link", () => ({
   usePlaidLink: (value: PlaidLinkOptions) => {
     options = value;
-    return { ready: false, open: vi.fn(), exit: vi.fn(), error: null };
+    return { ready: false, open: vi.fn(), exit, error: null };
   },
 }));
 beforeEach(() => {
@@ -25,6 +27,56 @@ beforeEach(() => {
   vi.stubGlobal("window", {
     location: { href: "https://example.test/plaid/oauth?oauth_state_id=synthetic" },
   });
+});
+
+it("requires an explicit duplicate choice and bypasses the guard for only that Link session", async () => {
+  const duplicate = vi.fn();
+  const done = vi.fn();
+  const session = { token: "link-synthetic", expiration: "2030-01-01T00:00:00Z" };
+  const existing = [{ id: "synthetic-connection", institutionId: "ins_synthetic" }];
+  const metadata = { institution_id: "ins_synthetic" } as Parameters<
+    NonNullable<PlaidLinkOptions["onEvent"]>
+  >[1];
+  renderToStaticMarkup(
+    <LinkLaunch session={session} existing={existing} onDuplicate={duplicate} onDone={done} />,
+  );
+  options.onEvent?.("SELECT_INSTITUTION", metadata);
+  expect(exit).toHaveBeenCalledWith({ force: true });
+  expect(duplicate).toHaveBeenCalledWith("synthetic-connection");
+  const choices = renderToStaticMarkup(
+    <DuplicateChoices pending={false} onAdd={() => {}} onReauthorize={() => {}} />,
+  );
+  expect(choices).toContain("重新授权已有连接");
+  expect(choices).toContain("仍然添加新连接（会占用一个新的 Plaid Item）");
+  vi.clearAllMocks();
+  renderToStaticMarkup(
+    <LinkLaunch
+      session={{ ...session, allowDuplicate: true }}
+      existing={existing}
+      onDuplicate={duplicate}
+      onDone={done}
+    />,
+  );
+  options.onEvent?.("SELECT_INSTITUTION", metadata);
+  expect(exit).not.toHaveBeenCalled();
+  expect(duplicate).not.toHaveBeenCalled();
+  options.onSuccess("public-synthetic", {
+    institution: { institution_id: "ins_synthetic", name: "Example Bank" },
+    accounts: [],
+    link_session_id: "synthetic-session",
+  });
+  await vi.waitFor(() => expect(done).toHaveBeenCalled());
+  expect(request).toHaveBeenCalledWith(
+    "/api/plaid/exchange",
+    "POST",
+    expect.objectContaining({ allowDuplicate: true }),
+  );
+  expect(removeItem).toHaveBeenCalledWith(LINK_STORAGE);
+  renderToStaticMarkup(
+    <LinkLaunch session={session} existing={existing} onDuplicate={duplicate} onDone={done} />,
+  );
+  options.onEvent?.("SELECT_INSTITUTION", metadata);
+  expect(duplicate).toHaveBeenCalledOnce();
 });
 afterEach(() => vi.unstubAllGlobals());
 

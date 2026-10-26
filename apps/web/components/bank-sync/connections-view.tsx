@@ -15,6 +15,7 @@ import { formatSyncTime } from "@/lib/bank-sync/time-format";
 import { MappingForm } from "./mapping-form";
 import type { LinkSession } from "./link";
 import { ResetForm } from "./reset-form";
+import { DuplicateChoices } from "./duplicate-choices";
 const LinkLaunch = dynamic(() => import("./link").then((module) => module.LinkLaunch), { ssr: false });
 const storageKey = "asset-ledger:plaid-link:v1";
 type Connections = JsonSafe<Awaited<ReturnType<typeof listConnections>>>;
@@ -37,6 +38,7 @@ export function ConnectionsView({
   const [removing, setRemoving] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<string | null>(null);
   const [newProduct, setNewProduct] = useState<"transactions" | "investments" | null>(null);
+  const [linkProduct, setLinkProduct] = useState<"transactions" | "investments">("transactions");
   const current = connections.filter((row) => row.environment === environment);
   const resetNames = Object.fromEntries([
     ...current.map((row) => [row.id, row.institutionName]),
@@ -56,7 +58,7 @@ export function ConnectionsView({
     const timer = setInterval(() => router.refresh(), 3000);
     return () => clearInterval(timer);
   }, [waitingForSync, router]);
-  const start = (product: "transactions" | "investments", id?: string) =>
+  const start = (product: "transactions" | "investments", id?: string, allowDuplicate = false) =>
     mutation.run(async () => {
       const result = await api<{ link_token: string; expiration: string }>(
         id ? `/api/plaid/connections/${id}/link-token` : "/api/plaid/link-token",
@@ -67,7 +69,9 @@ export function ConnectionsView({
         token: result.link_token,
         expiration: result.expiration,
         ...(id ? { connectionId: id } : {}),
+        ...(allowDuplicate ? { allowDuplicate: true } : {}),
       };
+      setLinkProduct(product);
       sessionStorage.setItem(storageKey, JSON.stringify(value));
       setNewProduct(null);
       setDuplicate(null);
@@ -82,12 +86,11 @@ export function ConnectionsView({
           Plaid。默认自动入账，转账与重复候选集中在待处理；可逐连接切回审核。余额仅生成机构观察。每 {interval}{" "}
           小时同步一次。
         </p>
-        {environment === "production" ? (
-          <p className="mt-2 font-medium">
-            已创建 {current.length} / 10 个连接（删除不返还名额）。此计数仅覆盖本地保留记录，最终额度以 Plaid
-            为准。
-          </p>
-        ) : null}
+        <p className="mt-2 font-medium">
+          已记录 {current.length}
+          {environment === "production" ? " / 10" : ""} 个
+          Item（含已撤销和迁入连接，删除不返还名额）。此计数仅覆盖本地保留记录，最终额度以 Plaid 为准。
+        </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Button disabled={mutation.pending} onClick={() => setNewProduct("transactions")}>
             连接银行 / 信用卡
@@ -261,12 +264,11 @@ export function ConnectionsView({
         title="这家机构已有连接"
         description="优先更新现有连接，避免占用新的 Trial 名额。"
       >
-        <Button
-          disabled={mutation.pending}
-          onClick={() => duplicate && void start("transactions", duplicate)}
-        >
-          更新现有授权
-        </Button>
+        <DuplicateChoices
+          pending={mutation.pending}
+          onReauthorize={() => duplicate && void start("transactions", duplicate)}
+          onAdd={() => void start(linkProduct, undefined, true)}
+        />
         <FormError error={mutation.error} />
       </FormSheet>
       <FormSheet

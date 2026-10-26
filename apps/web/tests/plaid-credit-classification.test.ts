@@ -45,6 +45,8 @@ async function connect(type: string, accountId: string, autoPost = true, secondA
     {
       public_token: "synthetic-public",
       institution: { institution_id: "ins_synthetic", name: "Example Bank" },
+      // These classification fixtures intentionally create separate Items at the same synthetic bank.
+      allowDuplicate: true,
     },
     now,
   );
