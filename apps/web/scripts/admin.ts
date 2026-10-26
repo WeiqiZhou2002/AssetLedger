@@ -12,8 +12,21 @@ async function main() {
       email: { type: "string" },
       password: { type: "string" },
       "if-empty": { type: "boolean", default: false },
+      status: { type: "boolean", default: false },
     },
   });
+  if (values.status) {
+    const pool = getPool();
+    try {
+      const result = await pool.query<{ has_users: boolean }>(
+        "select exists(select 1 from users) as has_users",
+      );
+      console.log(JSON.stringify({ kind: "admin_status", hasUsers: result.rows[0].has_users }));
+    } finally {
+      await pool.end();
+    }
+    return;
+  }
   const email = values.email ?? process.env.ADMIN_EMAIL;
   const password = values.password ?? process.env.ADMIN_PASSWORD;
   if (values["if-empty"] && (!email || !password)) return;

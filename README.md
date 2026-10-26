@@ -54,18 +54,21 @@ cd AssetLedger
 scripts/setup.sh
 ```
 
-脚本只询问管理员邮箱和密码（至少 12 字符，隐藏输入并确认），自动生成随机密钥和数据库密码，检测本机时区，默认关闭 Plaid。首次构建需要几分钟；健康检查通过后打开 <http://localhost:3000>，使用刚才的邮箱和密码登录。
+脚本只询问管理员邮箱和密码（12–1024 字符，隐藏输入并确认），自动生成随机密钥和数据库密码，检测本机时区，默认关闭 Plaid。首次构建需要几分钟；随后每 2 秒直接探测应用是否就绪，最多等待 5 分钟，无需等待 Docker 的定时健康检查。完成后打开脚本显示的地址（默认 <http://localhost:3000>），使用刚才的邮箱和密码登录。
 
-`.env` 权限为 `600`，管理员密码只通过首次启动的环境传入，初始化成功后会重新创建 web / worker 清除该密码。再次运行时保留已有 `.env` 的全部内容，不重新询问或生成密钥。健康检查超时可运行 `docker compose logs --tail=50 web` 排查，配置和数据会保留。
+`.env` 权限为 `600`。新输入的管理员密码只通过单次容器内管理员创建命令的环境传入，不写入文件、命令参数或容器配置，也无需重新创建 web / worker。再次运行时保留已有 `.env` 的全部内容和密钥；已有管理员则跳过创建，没有管理员则在服务就绪后询问邮箱和密码，邮箱默认取自 `.env`。已有 `.env` 中手动配置的 `ADMIN_PASSWORD` 仍按原有 Compose 规则生效。
 
-高级用法：`scripts/setup.sh --no-start` 只创建配置，不需要 Docker，也不创建管理员；自动化可通过环境预设 `ADMIN_EMAIL` / `ADMIN_PASSWORD`。仅准备配置后首次启动，需重新通过环境提供密码（不写入命令历史）：
+同一台机器安装第二套时，在另一份尚无 `.env` 的仓库中指定不同的项目名，使容器和数据卷相互独立：
 
-```bash
-read -r -s -p '管理员密码：' ADMIN_PASSWORD; printf '\n'
-export ADMIN_PASSWORD
-scripts/setup.sh
-unset ADMIN_PASSWORD
+```sh
+scripts/setup.sh --project-name another-ledger
 ```
+
+项目名仅含小写字母、数字、`_` 和 `-`，且以字母或数字开头。脚本会将 `COMPOSE_PROJECT_NAME` 写入新的 `.env`；已有 `.env` 时拒绝修改并提示需手动添加的配置行。两套服务同时运行还需为第二套修改 `docker-compose.yml` 中 web 的宿主机端口（例如 `127.0.0.1:3001:3000`），并将 `.env` 的 `APP_URL` 改为 `http://localhost:3001`。
+
+新安装会先检查 `<项目名>_postgres` 卷。若已存在，脚本会停止且不写 `.env`：该卷可能来自另一套安装或旧测试，新生成的数据库密码无法访问它。保留旧数据并使用不同的 `--project-name` 安装；只有确认旧数据不再需要时，才先备份、停止使用旧卷的服务，再按提示手动 `docker volume rm <项目名>_postgres <项目名>_uploads`。脚本不会自动删除或重建数据卷。已有配置启动后若持续出现 `db_unavailable`，脚本也会提前提示检查该卷是否由另一份 `.env` 中不同的 `POSTGRES_PASSWORD` 初始化；容器退出或重启、端口被占用时会给出相应排查提示。
+
+高级用法：`scripts/setup.sh --no-start` 只创建配置，不需要 Docker，也不创建管理员。之后直接再次运行 `scripts/setup.sh`，会在需要时重新询问管理员信息；自动化可通过环境预设 `ADMIN_EMAIL` / `ADMIN_PASSWORD`。首次启动失败也可修复后直接重跑，已有配置和数据会保留。健康检查超时或容器异常可运行 `docker compose logs --tail=50 web` 排查。
 
 ### 开机自启与安装为应用
 
