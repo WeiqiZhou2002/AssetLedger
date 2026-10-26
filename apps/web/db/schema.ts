@@ -48,6 +48,12 @@ export const sessions = pgTable(
   },
   (table) => [index("sessions_user_idx").on(table.userId), index("sessions_expiry_idx").on(table.expiresAt)],
 );
+export const setupTokens = pgTable("setup_tokens", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ...timestamps(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
 export const loginAttempts = pgTable(
   "login_attempts",
   {
@@ -98,6 +104,23 @@ const owned = () => ({
     .references(() => users.id),
   ...timestamps(),
 });
+export const plaidSettings = pgTable(
+  "plaid_settings",
+  {
+    ...owned(),
+    environment: text("environment", { enum: ["sandbox", "production"] }).notNull(),
+    clientId: text("client_id").notNull(),
+    secretEnc: text("secret_enc").notNull(),
+    redirectUri: text("redirect_uri"),
+    enabled: boolean("enabled").notNull().default(false),
+    verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  },
+  (t) => [
+    unique("plaid_settings_owner_unique").on(t.ownerId),
+    check("plaid_settings_environment_check", sql`${t.environment} IN ('sandbox', 'production')`),
+    check("plaid_settings_verified_check", sql`NOT ${t.enabled} OR ${t.verifiedAt} IS NOT NULL`),
+  ],
+);
 export const institutions = pgTable(
   "institutions",
   {

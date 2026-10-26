@@ -1,9 +1,48 @@
 import { and, eq } from "drizzle-orm";
 import type { AppDb } from "@/db/types";
-import { importJobs } from "@/db/schema";
+import { bankConnections, importJobs } from "@/db/schema";
 import { syncConnection } from "./sync";
-import { plaidError } from "./plaid-client";
+import { PlaidClient, plaidError } from "./plaid-client";
+import { loadPlaidConfig } from "./config";
 import type { BankClient, PlaidConfig } from "./types";
+export async function processConfiguredBankJob(
+  db: AppDb,
+  job: typeof importJobs.$inferSelect,
+  env: PlaidConfig,
+  now = new Date(),
+  makeClient: (config: PlaidConfig) => BankClient = (config) => new PlaidClient(config),
+) {
+  const { config } = await loadPlaidConfig(db, job.ownerId, env);
+  const [connection] = job.connectionId
+    ? await db
+        .select({ environment: bankConnections.environment })
+        .from(bankConnections)
+        .where(and(eq(bankConnections.ownerId, job.ownerId), eq(bankConnections.id, job.connectionId)))
+    : [];
+  if (config.PLAID_ENABLED !== "true" || (connection && connection.environment !== config.PLAID_ENV)) {
+    // Pause queued work without consuming retries while this owner's environment is disabled.
+    await db
+      .update(importJobs)
+      .set({
+        status: "queued",
+        attempts: Math.max(0, job.attempts - 1),
+        runAfter: new Date(now.getTime() + 60000),
+        lockedAt: null,
+        lockedBy: null,
+      })
+      .where(
+        and(
+          eq(importJobs.ownerId, job.ownerId),
+          eq(importJobs.id, job.id),
+          eq(importJobs.status, "running"),
+          eq(importJobs.lockedBy, job.lockedBy ?? ""),
+          eq(importJobs.attempts, job.attempts),
+        ),
+      );
+    return;
+  }
+  return processBankJob(db, job, makeClient(config), config, now);
+}
 export async function processBankJob(
   db: AppDb,
   job: typeof importJobs.$inferSelect,

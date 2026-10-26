@@ -21,7 +21,7 @@ function exportColumns(table: (typeof ownerTables)[keyof typeof ownerTables]) {
   // Encrypted provider tokens are credentials too: exclude at SELECT time in JSON and CSV.
   return Object.fromEntries(
     Object.entries(getTableColumns(table)).filter(
-      ([name]) => name !== "accessTokenEnc" && name !== "transactionsCursor",
+      ([name]) => name !== "accessTokenEnc" && name !== "transactionsCursor" && name !== "secretEnc",
     ),
   );
 }

@@ -67,6 +67,8 @@ beforeEach(async () => {
   vi.stubEnv("DATABASE_URL", "postgresql://synthetic/test");
   vi.stubEnv("PLAID_ENABLED", "true");
   vi.stubEnv("PLAID_ENV", "sandbox");
+  vi.stubEnv("PLAID_CLIENT_ID", config.PLAID_CLIENT_ID);
+  vi.stubEnv("PLAID_SECRET", config.PLAID_SECRET);
   vi.stubEnv("DATA_DIR", dir);
 });
 afterAll(async () => {

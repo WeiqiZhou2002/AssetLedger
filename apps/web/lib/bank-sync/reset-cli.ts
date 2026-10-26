@@ -1,3 +1,4 @@
+import { loadPlaidConfig } from "./config";
 import { parseArgs } from "node:util";
 import { eq, sql } from "drizzle-orm";
 import type { AppDb } from "@/db/types";
@@ -24,6 +25,7 @@ export async function runResetCli(db: AppDb, config: ResetConfig, args: string[]
     .from(users)
     .where(eq(sql`lower(${users.email})`, values.owner.toLowerCase()));
   invariant(owner, "所有者不存在");
+  config = (await loadPlaidConfig(db, owner.id, config)).config;
   const input = {
     connections: values.connections === "all" ? "all" : values.connections.split(","),
     from: values.from,

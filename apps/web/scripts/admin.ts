@@ -5,6 +5,7 @@ import { getPool } from "@/db/client";
 import * as schema from "@/db/schema";
 import { readEnv } from "@/lib/env";
 import { createAdmin } from "@/lib/auth/admin";
+import { createSetupLink } from "@/lib/auth/setup";
 async function main() {
   const { values } = parseArgs({
     args: process.argv.slice(2).filter((value) => value !== "--"),
@@ -13,6 +14,7 @@ async function main() {
       password: { type: "string" },
       "if-empty": { type: "boolean", default: false },
       status: { type: "boolean", default: false },
+      "setup-link": { type: "boolean", default: false },
     },
   });
   if (values.status) {
@@ -22,6 +24,16 @@ async function main() {
         "select exists(select 1 from users) as has_users",
       );
       console.log(JSON.stringify({ kind: "admin_status", hasUsers: result.rows[0].has_users }));
+    } finally {
+      await pool.end();
+    }
+    return;
+  }
+  if (values["setup-link"]) {
+    const pool = getPool();
+    try {
+      // Explicit operator output only; never called by the application or entrypoint.
+      console.log(JSON.stringify(await createSetupLink(drizzle(pool, { schema }))));
     } finally {
       await pool.end();
     }

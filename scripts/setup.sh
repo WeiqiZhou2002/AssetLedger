@@ -6,15 +6,15 @@ usage() {
   cat <<'EOF'
 用法：scripts/setup.sh [--no-start] [--project-name NAME] [--help]
 
-首次安装 Asset Ledger：生成私有 .env，创建管理员并启动 Docker Compose。
-已有 .env 时保留全部内容；服务就绪后，仅在没有管理员时询问邮箱和密码。
+首次安装 Asset Ledger：生成私有 .env，启动 Docker Compose，在浏览器中创建管理员。
+已有 .env 时保留全部内容；服务就绪后，没有管理员时打开 24 小时有效的设置链接。
 
   --no-start          仅准备 .env，不检查或启动 Docker
   --project-name NAME 为新安装指定独立的 Compose 项目名（小写字母、数字、_、-）
   --help              显示帮助
 
-自动化可预设 ADMIN_EMAIL / ADMIN_PASSWORD；密码不会写入 .env。
---no-start 不创建管理员；之后再次运行 scripts/setup.sh，会在需要时询问管理员信息。
+自动化可同时预设 ADMIN_EMAIL / ADMIN_PASSWORD；两者都非空时通过容器命令创建管理员。
+新 .env 中管理员邮箱和密码均留空；--no-start 不创建管理员，之后再次运行即可在浏览器中设置。
 EOF
 }
 
@@ -41,9 +41,7 @@ done
 
 # Keep the password out of every child process except the admin creation exec.
 setup_admin_email="${ADMIN_EMAIL-}"
-setup_email_provided="${ADMIN_EMAIL+x}"
 setup_admin_password="${ADMIN_PASSWORD-}"
-setup_password_provided="${ADMIN_PASSWORD+x}"
 unset ADMIN_EMAIL ADMIN_PASSWORD
 
 root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -150,28 +148,14 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-collect_admin_credentials() {
-  local default_email="${1-}" setup_password_confirmation=''
-  if [[ -z "$setup_email_provided" ]]; then
-    IFS= read -r -p "管理员邮箱${default_email:+ [$default_email]}：" setup_admin_email || fail '未读取到邮箱；自动化请设置 ADMIN_EMAIL。'
-    setup_admin_email="${setup_admin_email:-$default_email}"
-  fi
-  email_pattern='^[A-Za-z0-9_+.-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$'
+validate_admin_presets() {
+  local email_pattern='^[A-Za-z0-9_+.-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}$'
   if [[ ${#setup_admin_email} -gt 254 || ! "$setup_admin_email" =~ $email_pattern || "$setup_admin_email" == .* || "$setup_admin_email" == *..* || "$setup_admin_email" == *.@* ]]; then
     fail '管理员邮箱格式无效，请填写例如 owner@example.com 的邮箱。'
   fi
   setup_admin_email="$(printf '%s' "$setup_admin_email" | tr '[:upper:]' '[:lower:]')"
-  if [[ -z "$setup_password_provided" ]]; then
-    IFS= read -r -s -p '管理员密码（12–1024 字符）：' setup_admin_password || fail '未读取到密码；自动化请设置 ADMIN_PASSWORD。'
-    printf '\n'
-  fi
   if [[ ${#setup_admin_password} -lt 12 || ${#setup_admin_password} -gt 1024 ]]; then
     fail '管理员密码须为 12–1024 个字符。'
-  fi
-  if [[ -z "$setup_password_provided" ]]; then
-    IFS= read -r -s -p '再次输入管理员密码：' setup_password_confirmation || fail '未读取到确认密码。'
-    printf '\n'
-    [[ "$setup_admin_password" == "$setup_password_confirmation" ]] || fail '两次输入的密码不一致。'
   fi
 }
 
@@ -179,7 +163,7 @@ if [[ "$existing_env" == true ]]; then
   printf '%s\n' '发现已有 .env，保留全部配置和密钥，跳过配置创建。'
 else
   [[ -f .env.example ]] || fail '缺少 .env.example，请使用完整的仓库。'
-  collect_admin_credentials
+  if [[ -n "$setup_admin_email" && -n "$setup_admin_password" ]]; then validate_admin_presets; fi
   setup_app_secret="$(openssl rand -hex 32)"
   setup_postgres_password="$(openssl rand -hex 32)"
   setup_backup_passphrase="$(openssl rand -hex 32)"
@@ -194,13 +178,12 @@ else
   SETUP_APP_SECRET="$setup_app_secret" \
   SETUP_POSTGRES_PASSWORD="$setup_postgres_password" \
   SETUP_BACKUP_PASSPHRASE="$setup_backup_passphrase" \
-  SETUP_ADMIN_EMAIL="$setup_admin_email" \
   SETUP_TIMEZONE="$setup_timezone" \
     awk '
       /^APP_SECRET=/ { print "APP_SECRET=" ENVIRON["SETUP_APP_SECRET"]; next }
       /^POSTGRES_PASSWORD=/ { print "POSTGRES_PASSWORD=" ENVIRON["SETUP_POSTGRES_PASSWORD"]; next }
       /^BACKUP_PASSPHRASE=/ { print "BACKUP_PASSPHRASE=" ENVIRON["SETUP_BACKUP_PASSPHRASE"]; next }
-      /^ADMIN_EMAIL=/ { print "ADMIN_EMAIL=" ENVIRON["SETUP_ADMIN_EMAIL"]; next }
+      /^ADMIN_EMAIL=/ { print "ADMIN_EMAIL="; next }
       /^ADMIN_PASSWORD=/ { print "ADMIN_PASSWORD="; next }
       /^TZ=/ && ENVIRON["SETUP_TIMEZONE"] != "" { print "TZ=" ENVIRON["SETUP_TIMEZONE"]; next }
       /^APP_URL=/ { print "APP_URL=http://localhost:3000"; next }
@@ -227,7 +210,7 @@ backup_reminder() {
 
 if [[ "$no_start" == true ]]; then
   unset setup_admin_password
-  printf '%s\n' '未启动服务或创建管理员。再次运行 scripts/setup.sh，会在需要时询问管理员信息。'
+  printf '%s\n' '未启动服务或创建管理员。再次运行 scripts/setup.sh，即可在浏览器中完成首次设置。'
   backup_reminder
   exit 0
 fi
@@ -297,15 +280,35 @@ case "$web_address" in
 esac
 wait_for_web
 
+setup_link=''
 admin_status="$(docker compose exec -T web node dist/admin.cjs --status)" || fail '无法查询管理员状态；配置和数据已保留，请检查数据库后重新运行 scripts/setup.sh。'
 case "$admin_status" in
   '{"kind":"admin_status","hasUsers":false}')
-    if [[ "$existing_env" == true ]]; then collect_admin_credentials "$(read_env_value ADMIN_EMAIL)"; fi
-    if ! ADMIN_PASSWORD="$setup_admin_password" docker compose exec -T -e ADMIN_PASSWORD web node dist/admin.cjs --if-empty --email "$setup_admin_email"; then
-      unset setup_admin_password
-      fail '创建管理员失败；配置和数据已保留，请检查后重新运行 scripts/setup.sh。'
+    if [[ -n "$setup_admin_email" && -n "$setup_admin_password" ]]; then
+      validate_admin_presets
+      if ! ADMIN_PASSWORD="$setup_admin_password" docker compose exec -T -e ADMIN_PASSWORD web node dist/admin.cjs --if-empty --email "$setup_admin_email"; then
+        unset setup_admin_password
+        fail '创建管理员失败；配置和数据已保留，请检查后重新运行 scripts/setup.sh。'
+      fi
+      printf '%s\n' '管理员初始化完成。'
+    else
+      setup_result="$(docker compose exec -T web node dist/admin.cjs --setup-link)" || fail '无法生成设置链接；请检查数据库后重新运行 scripts/setup.sh。'
+      setup_pattern='^\{"kind":"setup_link","path":"(/setup\?token=[A-Za-z0-9_-]{43})"\}$'
+      if [[ "$setup_result" =~ $setup_pattern ]]; then
+        setup_link="http://localhost:${web_port}${BASH_REMATCH[1]}"
+        printf '\n请打开 %s\n%s\n' "$setup_link" '24 小时内有效；重新运行 scripts/setup.sh 可获取新链接'
+        case "$(uname -s)" in
+          Darwin) if command -v open >/dev/null 2>&1; then open "$setup_link" >/dev/null 2>&1 || true; fi ;;
+          Linux) if [[ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]] && command -v xdg-open >/dev/null 2>&1; then xdg-open "$setup_link" >/dev/null 2>&1 || true; fi ;;
+        esac
+      elif [[ "$setup_result" == '{"kind":"setup_not_needed"}' ]]; then
+        printf '%s\n' '已有管理员，跳过创建'
+      else
+        fail '无法识别设置链接响应；请重新运行 scripts/setup.sh。'
+      fi
+      unset setup_result
+      setup_admin_email=''
     fi
-    printf '%s\n' '管理员初始化完成。'
     ;;
   '{"kind":"admin_status","hasUsers":true}')
     printf '%s\n' '已有管理员，跳过创建'
@@ -315,10 +318,12 @@ case "$admin_status" in
 esac
 unset setup_admin_password
 
-printf '\n请打开 http://localhost:%s\n' "$web_port"
-if [[ -n "$setup_admin_email" ]]; then
-  printf '使用管理员邮箱 %s 和你的密码登录。\n' "$setup_admin_email"
-else
-  printf '%s\n' '使用已有管理员邮箱和密码登录。'
+if [[ -z "$setup_link" ]]; then
+  printf '\n请打开 http://localhost:%s\n' "$web_port"
+  if [[ -n "$setup_admin_email" ]]; then
+    printf '使用管理员邮箱 %s 和你的密码登录。\n' "$setup_admin_email"
+  else
+    printf '%s\n' '使用已有管理员邮箱和密码登录。'
+  fi
 fi
 backup_reminder

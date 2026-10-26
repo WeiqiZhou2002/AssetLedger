@@ -153,6 +153,13 @@ export class PlaidClient implements BankClient {
     await this.api.itemRemove({ access_token: accessToken });
   }
 }
+export async function testPlaidCredentials(config: PlaidConfig) {
+  await plaidApi({ ...config, PLAID_ENABLED: "true" }).institutionsGet({
+    count: 1,
+    offset: 0,
+    country_codes: [CountryCode.Us],
+  });
+}
 export async function createSandboxPublicToken(config: PlaidConfig) {
   invariant(config.PLAID_ENV === "sandbox", "此脚本仅限 Sandbox");
   const { data } = await plaidApi(config).sandboxPublicTokenCreate({

@@ -50,7 +50,7 @@ vi.mock("next/navigation", () => ({
   },
 }));
 const hub = await import("@/app/(app)/statements/page");
-const legacyPage = await import("@/app/(app)/settings/banks/page");
+const bankSettingsPage = await import("@/app/(app)/settings/banks/page");
 const assignmentRoute = await import("@/app/api/statements/[id]/route");
 beforeAll(async () => {
   h = await createTestDb();
@@ -581,7 +581,7 @@ it("creates and assigns an uploaded statement account atomically through the API
   await expect(setStatementAccount(h.db, f.otherId, data.statement.id, body)).rejects.toThrow("不存在");
 });
 
-it("renders a single import hub with conditional Plaid entry and the linkable sync tab; old settings URL redirects permanently", async () => {
+it("renders a single import hub with conditional Plaid entry and the linkable sync tab; bank settings manages credentials and links to sync", async () => {
   const render = async (tab?: string) =>
     renderToStaticMarkup(await hub.default({ searchParams: Promise.resolve({ tab }) }));
   let html = await render();
@@ -595,7 +595,10 @@ it("renders a single import hub with conditional Plaid entry and the linkable sy
   expect(html).toContain("立即同步");
   expect(html).toContain("请求银行刷新");
   expect(html).toContain("新建账户");
-  expect(() => legacyPage.default()).toThrow("PERMANENT:/statements?tab=sync");
+  const settings = renderToStaticMarkup(await bankSettingsPage.default());
+  expect(settings).toContain("Plaid 凭据");
+  expect(settings).toContain("由服务器环境变量管理");
+  expect(settings).toContain('href="/statements?tab=sync"');
   vi.stubEnv("PLAID_ENABLED", "false");
   html = await render("sync");
   expect(html).toContain("上传 PDF / CSV");

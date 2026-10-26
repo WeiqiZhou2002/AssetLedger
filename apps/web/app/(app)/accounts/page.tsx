@@ -11,14 +11,14 @@ import { listInstitutions } from "@/lib/ledger/accounts";
 import { cardMeta } from "@/lib/ledger/card-secrets";
 import { balancesAsOf } from "@/lib/ledger/queries";
 import { todayInTimezone } from "@/lib/ledger/format";
-import { readEnv } from "@/lib/env";
+import { loadPlaidConfig } from "@/lib/bank-sync/config";
 import { BankConnectButton } from "@/components/bank-sync/connect-button";
 export const metadata = { title: "账户" };
 export default async function AccountsPage() {
   const user = await requireUser();
   const today = todayInTimezone(user.timezone);
   const db = getDb();
-  const env = readEnv();
+  const { config: env } = await loadPlaidConfig(db, user.id);
   const [accounts, institutions, groups, benefits, positions, cards, tracking, rates] = await Promise.all([
     balancesAsOf(db, user.id, today),
     listInstitutions(db, user.id),

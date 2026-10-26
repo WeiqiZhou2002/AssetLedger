@@ -108,6 +108,9 @@ it("retires empty tables and null columns while preserving all other data for ev
       before[table] = before[table].map((row) =>
         Object.fromEntries(Object.entries(row).filter(([key]) => !retiredColumns.includes(key))),
       );
+    // Later additive setup migration creates empty tables without changing retained data.
+    before.plaid_settings = [];
+    before.setup_tokens = [];
     await h.applyMigrations();
     expect(await dump(h)).toEqual(before);
     await h.applyMigrations();

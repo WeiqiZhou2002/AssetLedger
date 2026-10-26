@@ -1,13 +1,13 @@
 import { requireUser } from "@/lib/auth/current-user";
 import { AppNavigation } from "@/components/app-navigation";
 import { LogoutButton } from "@/components/logout-button";
-import { readEnv } from "@/lib/env";
+import { loadPlaidConfig } from "@/lib/bank-sync/config";
 import { getDb } from "@/db/client";
 import { pendingCount } from "@/lib/bank-sync/pending";
 import { transferSuggestions } from "@/lib/bank-sync/transfer-suggestions";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
-  const env = readEnv();
+  const { config: env } = await loadPlaidConfig(getDb(), user.id);
   const plaidEnabled = env.PLAID_ENABLED === "true";
   const pending = plaidEnabled
     ? await pendingCount(getDb(), user.id, env.PLAID_ENV)

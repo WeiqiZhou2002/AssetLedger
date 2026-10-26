@@ -39,6 +39,7 @@ function fixture({ curl = true } = {}) {
   copyFileSync(join(repository, "docker-compose.yml"), join(root, "docker-compose.yml"));
   const calls = join(root, "docker-calls");
   const httpCalls = join(root, "http-calls");
+  const browserCalls = join(root, "browser-calls");
   const clock = join(root, "clock");
   writeFileSync(clock, "0\n");
   // Isolate PATH so missing-curl coverage cannot accidentally use the host curl.
@@ -110,6 +111,16 @@ case "$*" in
     [ "\${SETUP_TEST_FAILURE:-}" != status ] || exit 1
     printf '{"kind":"admin_status","hasUsers":%s}\\n' "\${SETUP_TEST_HAS_USERS:-false}"
     ;;
+  'compose exec -T web node dist/admin.cjs --setup-link')
+    [ "\${SETUP_TEST_FAILURE:-}" != setup-link ] || exit 1
+    if [ "\${SETUP_TEST_FAILURE:-}" = setup-race ]; then
+      printf '{"kind":"setup_not_needed"}\\n'
+    elif [ "\${SETUP_TEST_FAILURE:-}" = setup-invalid ]; then
+      printf '{"kind":"setup_link","path":"https://evil.example"}\\n'
+    else
+      printf '{"kind":"setup_link","path":"/setup?token=sssssssssssssssssssssssssssssssssssssssssss"}\\n'
+    fi
+    ;;
   'compose exec -T -e ADMIN_PASSWORD web node dist/admin.cjs --if-empty --email '*)
     [ "$password_state" = present ] || exit 94
     digest="$(printf '%s' "$ADMIN_PASSWORD" | openssl dgst -sha256)"
@@ -146,12 +157,21 @@ printf '%s|%s\\n' "$*" "\${ADMIN_PASSWORD+present}" >> "$SETUP_TEST_HTTP_CALLS"
 `,
       { mode: 0o700 },
     );
+  for (const command of ["open", "xdg-open"])
+    writeFileSync(
+      join(bin, command),
+      `#!/bin/sh\nprintf '%s|%s\\n' '${command}' "$*" >> "$SETUP_TEST_BROWSER_CALLS"\n`,
+      { mode: 0o700 },
+    );
+  writeFileSync(join(bin, "uname"), '#!/bin/sh\nprintf "%s\\n" "$SETUP_TEST_OS"\n', { mode: 0o700 });
   const envFile = join(root, ".env");
   return {
     root,
     envFile,
     contents: () => readFileSync(envFile, "utf8"),
     calls: () => (existsSync(calls) ? readFileSync(calls, "utf8").trim().split("\n") : []),
+    browserCalls: () =>
+      existsSync(browserCalls) ? readFileSync(browserCalls, "utf8").trim().split("\n") : [],
     httpCalls: () => (existsSync(httpCalls) ? readFileSync(httpCalls, "utf8").trim().split("\n") : []),
     elapsed: () => Number(readFileSync(clock, "utf8")),
     run(args = ["--no-start"], environment: Partial<NodeJS.ProcessEnv> = {}, input?: string) {
@@ -165,6 +185,10 @@ printf '%s|%s\\n' "$*" "\${ADMIN_PASSWORD+present}" >> "$SETUP_TEST_HTTP_CALLS"
           ADMIN_PASSWORD: syntheticPassword,
           SETUP_TEST_CALLS: calls,
           SETUP_TEST_HTTP_CALLS: httpCalls,
+          SETUP_TEST_BROWSER_CALLS: browserCalls,
+          SETUP_TEST_OS: "Darwin",
+          DISPLAY: "",
+          WAYLAND_DISPLAY: "",
           SETUP_TEST_CLOCK: clock,
           SETUP_TEST_PASSWORD_HASH: createHash("sha256").update(syntheticPassword).digest("hex"),
           SETUP_TEST_HAS_USERS: "false",
@@ -205,7 +229,7 @@ setupTest(
     expect(config.BACKUP_PASSPHRASE).not.toBe(config.APP_SECRET);
     expect(config.POSTGRES_PASSWORD).toMatch(/^[a-f0-9]{64}$/);
     expect(config.POSTGRES_PASSWORD).not.toBe("replace-with-random-hex-password");
-    expect(config.ADMIN_EMAIL).toBe(syntheticEmail);
+    expect(config.ADMIN_EMAIL).toBe("");
     expect(config.ADMIN_PASSWORD).toBe("");
     expect(config.APP_URL).toBe("http://localhost:3000");
     expect(config.PLAID_ENABLED).toBe("false");
@@ -251,7 +275,6 @@ setupTest.each([
   { ADMIN_EMAIL: "unsafe$(command)@example.com", message: "邮箱格式无效" },
   { ADMIN_EMAIL: "owner@example.com\nAPP_SECRET=unsafe", message: "邮箱格式无效" },
   { ADMIN_PASSWORD: "short", message: "12–1024" },
-  { ADMIN_PASSWORD: "", message: "12–1024" },
   { ADMIN_PASSWORD: "s".repeat(1025), message: "12–1024" },
 ])("rejects invalid credentials before writing any env: $message", ({ message, ...environment }) => {
   const setup = fixture();
@@ -261,29 +284,65 @@ setupTest.each([
   expect(existsSync(setup.envFile)).toBe(false);
 });
 
-setupTest("reads and confirms an interactive password without echoing it", () => {
+setupTest("prepares env without administrator input or presets", () => {
   const setup = fixture();
-  const result = setup.run(
-    ["--no-start"],
-    { ADMIN_EMAIL: undefined, ADMIN_PASSWORD: undefined },
-    `${syntheticEmail}\n${syntheticPassword}\n${syntheticPassword}\n`,
-  );
+  const result = setup.run(["--no-start"], { ADMIN_EMAIL: undefined, ADMIN_PASSWORD: undefined });
   expect(result.status, result.output).toBe(0);
-  expect(values(setup.contents()).ADMIN_EMAIL).toBe(syntheticEmail);
-  expect(result.output).not.toContain(syntheticPassword);
-  expect(setup.contents()).not.toContain(syntheticPassword);
+  expect(values(setup.contents()).ADMIN_EMAIL).toBe("");
+  expect(values(setup.contents()).ADMIN_PASSWORD).toBe("");
+  expect(result.output).toContain("浏览器");
+  expect(setup.calls()).toEqual([]);
 });
 
-setupTest("rejects a mismatched confirmation without creating env", () => {
+setupTest.each([
+  ["Darwin", "", "", "open"],
+  ["Linux", ":0", "", "xdg-open"],
+  ["Linux", "", "wayland-0", "xdg-open"],
+  ["Linux", "", "", ""],
+])("prints a setup link and opens it when available on %s (%s/%s)", (os, display, wayland, command) => {
   const setup = fixture();
-  const result = setup.run(
-    ["--no-start"],
-    { ADMIN_PASSWORD: undefined },
-    `${syntheticPassword}\na different synthetic password\n`,
-  );
-  expect(result.status).not.toBe(0);
-  expect(result.output).toContain("两次输入的密码不一致");
-  expect(existsSync(setup.envFile)).toBe(false);
+  const result = setup.run([], {
+    ADMIN_EMAIL: undefined,
+    ADMIN_PASSWORD: undefined,
+    SETUP_TEST_OS: os,
+    DISPLAY: display,
+    WAYLAND_DISPLAY: wayland,
+    SETUP_TEST_ADDRESS: "127.0.0.1:4123",
+  });
+  expect(result.status, result.output).toBe(0);
+  const link = "http://localhost:4123/setup?token=sssssssssssssssssssssssssssssssssssssssssss";
+  expect(result.output).toContain(link);
+  expect(result.output).toContain("24 小时内有效；重新运行 scripts/setup.sh 可获取新链接");
+  expect(setup.browserCalls()).toEqual(command ? [`${command}|${link}`] : []);
+  expect(setup.calls()).toContain("compose exec -T web node dist/admin.cjs --setup-link|unset");
+  expect(setup.calls().some((call) => call.includes("--if-empty"))).toBe(false);
+  expect(values(setup.contents()).ADMIN_EMAIL).toBe("");
+});
+
+setupTest.each(["setup-link", "setup-invalid"])(
+  "fails safely when %s cannot provide a valid setup link",
+  (failure) => {
+    const setup = fixture();
+    const result = setup.run([], {
+      ADMIN_EMAIL: undefined,
+      ADMIN_PASSWORD: undefined,
+      SETUP_TEST_FAILURE: failure,
+    });
+    expect(result.status).not.toBe(0);
+    expect(setup.browserCalls()).toEqual([]);
+    expect(result.output).not.toContain("evil.example");
+  },
+);
+setupTest("handles an administrator created between status and setup-link", () => {
+  const setup = fixture();
+  const result = setup.run([], {
+    ADMIN_EMAIL: undefined,
+    ADMIN_PASSWORD: undefined,
+    SETUP_TEST_FAILURE: "setup-race",
+  });
+  expect(result.status, result.output).toBe(0);
+  expect(setup.browserCalls()).toEqual([]);
+  expect(result.output).toContain("已有管理员，跳过创建");
 });
 
 setupTest(
@@ -363,24 +422,14 @@ setupTest("creates the missing admin on a later run using environment presets", 
   );
 });
 
-setupTest("prompts for a missing admin with the existing env email as default", () => {
+setupTest("uses a setup link with an existing env and partial presets, without changing the file", () => {
   const setup = fixture();
   expect(setup.run().status).toBe(0);
-  const original = setup
-    .contents()
-    .replace(`ADMIN_EMAIL=${syntheticEmail}`, `ADMIN_EMAIL='${syntheticEmail}'`);
-  writeFileSync(setup.envFile, original);
-  const result = setup.run(
-    [],
-    { ADMIN_EMAIL: undefined, ADMIN_PASSWORD: undefined },
-    `\n${syntheticPassword}\n${syntheticPassword}\n`,
-  );
+  const original = setup.contents();
+  const result = setup.run([], { ADMIN_PASSWORD: undefined });
   expect(result.status, result.output).toBe(0);
   expect(setup.contents()).toBe(original);
-  expect(setup.calls()).toContain(
-    `compose exec -T -e ADMIN_PASSWORD web node dist/admin.cjs --if-empty --email ${syntheticEmail}|present`,
-  );
-  expect(result.output).not.toContain(syntheticPassword);
+  expect(setup.calls()).toContain("compose exec -T web node dist/admin.cjs --setup-link|unset");
 });
 
 setupTest("refuses an existing database volume before writing env or starting containers", () => {

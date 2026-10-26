@@ -4,7 +4,7 @@ import { requireUser } from "@/lib/auth/current-user";
 import { getDb } from "@/db/client";
 import { listAccounts } from "@/lib/ledger/accounts";
 import { listStatements } from "@/lib/imports/service";
-import { readEnv } from "@/lib/env";
+import { loadPlaidConfig } from "@/lib/bank-sync/config";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StatementUpload } from "@/components/imports/upload";
@@ -21,7 +21,7 @@ export const metadata = { title: "导入与同步" };
 export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const user = await requireUser();
   const db = getDb();
-  const env = readEnv();
+  const { config: env } = await loadPlaidConfig(db, user.id);
   const enabled = env.PLAID_ENABLED === "true";
   const sync = enabled && (await searchParams).tab !== "inbox";
   const [statements, accounts, connections, workbench, categories, recoveries, suggestions] =

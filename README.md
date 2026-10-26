@@ -54,9 +54,19 @@ cd AssetLedger
 scripts/setup.sh
 ```
 
-脚本只询问管理员邮箱和密码（12–1024 字符，隐藏输入并确认），自动生成随机密钥和数据库密码，检测本机时区，默认关闭 Plaid。首次构建需要几分钟；随后每 2 秒直接探测应用是否就绪，最多等待 5 分钟，无需等待 Docker 的定时健康检查。完成后打开脚本显示的地址（默认 <http://localhost:3000>），使用刚才的邮箱和密码登录。
+脚本自动生成随机密钥和数据库密码，检测本机时区，默认关闭 Plaid。首次构建需要几分钟；随后每 2 秒直接探测应用是否就绪，最多等待 5 分钟。没有管理员时，脚本会打印首次设置链接，并在 macOS 或有桌面环境的 Linux 上尝试打开浏览器。在浏览器中填写邮箱、密码及确认密码（12–1024 字符），完成后自动登录；随后可开启两步验证、填写 Plaid 凭据或进入总览。
 
-`.env` 权限为 `600`。新输入的管理员密码只通过单次容器内管理员创建命令的环境传入，不写入文件、命令参数或容器配置，也无需重新创建 web / worker。再次运行时保留已有 `.env` 的全部内容和密钥；已有管理员则跳过创建，没有管理员则在服务就绪后询问邮箱和密码，邮箱默认取自 `.env`。已有 `.env` 中手动配置的 `ADMIN_PASSWORD` 仍按原有 Compose 规则生效。
+设置链接 24 小时内有效且只能使用一次。过期或关闭页面后，重新运行 `scripts/setup.sh` 获取新链接，旧链接随即失效。也可手动执行：
+
+```sh
+docker compose exec web node dist/admin.cjs --setup-link
+```
+
+把输出中的 `path` 接到你的应用地址后打开（本机默认 `http://localhost:3000`）。已有用户时命令只返回 `setup_not_needed`，不会开放注册。设置链接可创建管理员，请勿分享。
+
+`.env` 权限为 `600`，新生成的 `ADMIN_EMAIL` 和 `ADMIN_PASSWORD` 均留空。自动化同时提供非空的 `ADMIN_EMAIL` / `ADMIN_PASSWORD` 时，仍通过单次容器命令创建管理员，密码只放在该命令的环境中，不写入文件或命令参数。再次运行保留已有 `.env` 的全部内容和密钥；已有管理员则跳过创建。已有 `.env` 中配置的管理员变量仍按原有 Compose 规则生效。
+
+Plaid 可在「设置 → 银行连接」填写环境、Client ID、Secret 和可选 OAuth 回跳地址，成功「测试凭据」后保存并启用。Secret 加密保存且不回显；留空保留现有值。环境变量中的 `PLAID_CLIENT_ID` 和 `PLAID_SECRET` 都非空时优先使用服务器配置，页面只读。切换环境需要确认，另一环境的连接会暂停同步，切回后恢复。
 
 同一台机器安装第二套时，在另一份尚无 `.env` 的仓库中指定不同的项目名，使容器和数据卷相互独立：
 
@@ -68,7 +78,7 @@ scripts/setup.sh --project-name another-ledger
 
 新安装会先检查 `<项目名>_postgres` 卷。若已存在，脚本会停止且不写 `.env`：该卷可能来自另一套安装或旧测试，新生成的数据库密码无法访问它。保留旧数据并使用不同的 `--project-name` 安装；只有确认旧数据不再需要时，才先备份、停止使用旧卷的服务，再按提示手动 `docker volume rm <项目名>_postgres <项目名>_uploads`。脚本不会自动删除或重建数据卷。已有配置启动后若持续出现 `db_unavailable`，脚本也会提前提示检查该卷是否由另一份 `.env` 中不同的 `POSTGRES_PASSWORD` 初始化；容器退出或重启、端口被占用时会给出相应排查提示。
 
-高级用法：`scripts/setup.sh --no-start` 只创建配置，不需要 Docker，也不创建管理员。之后直接再次运行 `scripts/setup.sh`，会在需要时重新询问管理员信息；自动化可通过环境预设 `ADMIN_EMAIL` / `ADMIN_PASSWORD`。首次启动失败也可修复后直接重跑，已有配置和数据会保留。健康检查超时或容器异常可运行 `docker compose logs --tail=50 web` 排查。
+高级用法：`scripts/setup.sh --no-start` 只创建配置，不需要 Docker，也不创建管理员。之后直接再次运行 `scripts/setup.sh`，会在需要时打开浏览器设置链接；自动化可同时通过环境预设 `ADMIN_EMAIL` / `ADMIN_PASSWORD`。首次启动失败也可修复后直接重跑，已有配置和数据会保留。健康检查超时或容器异常可运行 `docker compose logs --tail=50 web` 排查。
 
 ### 开机自启与安装为应用
 
@@ -167,7 +177,7 @@ docker compose up --build -d
 docker compose ps
 ```
 
-入口脚本等待数据库、执行迁移，并仅在数据库没有用户时用管理员变量创建首个用户。后续启动不会覆盖密码，创建完成后可从 `.env` 删除 `ADMIN_PASSWORD`。
+入口脚本等待数据库、执行迁移，仅在数据库没有用户且管理员变量齐全时创建首个用户。未预设管理员时，运行 `scripts/setup.sh` 或 `docker compose exec web node dist/admin.cjs --setup-link` 获取浏览器设置链接。入口脚本不会打印设置令牌。后续启动不会覆盖密码，创建完成后可从 `.env` 删除 `ADMIN_PASSWORD`。
 
 - `web` 只绑定宿主机 `127.0.0.1:3000`，`worker` 处理导入与定时同步。
 - `db` 与 `parser` 仅在内部网络可达；parser 镜像含中英文 OCR。
@@ -184,6 +194,8 @@ docker compose --profile tunnel up --build -d
 自托管升级：拉取新版本后 `docker compose up --build -d`；入口脚本会执行迁移。
 
 ## 环境变量
+
+Plaid 环境变量的 Client ID 和 Secret 同时非空时，优先于「设置 → 银行连接」中的凭据、环境、启用状态与回跳地址；否则使用当前所有者保存的设置。同步间隔与历史范围始终来自环境变量。
 
 以下应用变量对应 [`lib/env.ts`](apps/web/lib/env.ts)，完整示例见 [`.env.example`](.env.example)。空白表示不启用或需要自行填写，凭据只使用自己的值。
 
@@ -217,23 +229,23 @@ docker compose --profile tunnel up --build -d
 
 以下变量由当前启动脚本、Compose 或备份工具读取，不是页面设置：
 
-| 变量                             | 默认 / 示例                        | 用途                                                   |
-| -------------------------------- | ---------------------------------- | ------------------------------------------------------ |
-| `POSTGRES_USER` / `POSTGRES_DB`  | `asset_ledger`                     | Compose 数据库用户与库名。                             |
-| `POSTGRES_PASSWORD`              | `replace-with-random-hex-password` | 必须替换；推荐随机十六进制以避免 URL 转义。            |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `owner@example.com` / 空           | 首次管理员创建，密码至少 12 字符。                     |
-| `FINTRACKER_IMAGE_TAG`           | `local`                            | Compose 镜像版本标签。                                 |
-| `CLOUDFLARE_TUNNEL_TOKEN`        | 空                                 | 仅传入 tunnel profile。                                |
-| `BACKUP_PASSPHRASE`              | 空                                 | 主机备份/恢复口令，需显式导出，脚本不自动读取 `.env`。 |
-| `DEMO_EMAIL` / `DEMO_PASSWORD`   | 空                                 | 仅显式演示种子使用，不自动注入容器。                   |
+| 变量                             | 默认 / 示例                        | 用途                                                      |
+| -------------------------------- | ---------------------------------- | --------------------------------------------------------- |
+| `POSTGRES_USER` / `POSTGRES_DB`  | `asset_ledger`                     | Compose 数据库用户与库名。                                |
+| `POSTGRES_PASSWORD`              | `replace-with-random-hex-password` | 必须替换；推荐随机十六进制以避免 URL 转义。               |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | 空 / 空                            | 可选首次管理员预设，密码 12–1024 字符；默认在浏览器设置。 |
+| `FINTRACKER_IMAGE_TAG`           | `local`                            | Compose 镜像版本标签。                                    |
+| `CLOUDFLARE_TUNNEL_TOKEN`        | 空                                 | 仅传入 tunnel profile。                                   |
+| `BACKUP_PASSPHRASE`              | 空                                 | 主机备份/恢复口令，需显式导出，脚本不自动读取 `.env`。    |
+| `DEMO_EMAIL` / `DEMO_PASSWORD`   | 空                                 | 仅显式演示种子使用，不自动注入容器。                      |
 
 ## 数据与隐私
 
-密码使用 Argon2id，支持 TOTP、登录限流与安全 Cookie；业务查询按会话用户隔离，写请求检查来源。TOTP 密钥、Plaid access token 和卡片载荷使用 `APP_SECRET` 派生的不同用途密钥加密。数据库中的普通账簿数据与上传文件并非整体加密，需保护主机和数据卷。
+密码使用 Argon2id，支持 TOTP、登录限流与安全 Cookie；业务查询按会话用户隔离，写请求检查来源。TOTP 密钥、Plaid Secret、Plaid access token 和卡片载荷使用 `APP_SECRET` 派生的不同用途密钥加密。数据库中的普通账簿数据与上传文件并非整体加密，需保护主机和数据卷。
 
 Plaid 默认关闭，开启后账户与交易资料会经 Plaid。PDF/CSV 默认本地处理；AI 默认关闭，只有启用配置且逐份确认后，才向 Anthropic 发送预览中的已遮盖交易行。上传文件保存在 `DATA_DIR`，预览需登录；日志不记录账单文本、敏感卡片字段或凭据。
 
-设置页可导出个人 JSON 或指定表 CSV，包含积分数据与转账匹配记忆，排除认证秘密、Plaid token 和整个卡片秘密表。删除全部个人数据需密码、确认文字及已启用的 TOTP；先撤销 Plaid 连接，再删除业务数据和不再被引用的文件、撤销会话，保留登录用户与安全设置。远端撤销失败时可重试。
+设置页可导出个人 JSON 或指定表 CSV，包含积分数据与转账匹配记忆，排除认证秘密、Plaid Secret、Plaid token 和整个卡片秘密表。删除全部个人数据需密码、确认文字及已启用的 TOTP；先撤销 Plaid 连接，再删除业务数据和不再被引用的文件、撤销会话，保留登录用户与安全设置。远端撤销失败时可重试。
 
 备份需 Docker Compose、Bash、tar 与 OpenSSL。通过环境安全注入独立的 `BACKUP_PASSPHRASE` 后运行：
 

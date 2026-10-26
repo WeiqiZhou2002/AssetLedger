@@ -1,7 +1,11 @@
 import { BrandLogo } from "@/components/brand-logo";
 import { LoginForm } from "@/components/login-form";
+import { getDb } from "@/db/client";
+import { hasUsers } from "@/lib/auth/setup";
 export const metadata = { title: "登录" };
-export default function Login() {
+export const dynamic = "force-dynamic";
+export default async function Login() {
+  const ready = await hasUsers(getDb());
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1.05fr_1fr]">
       <section className="hidden flex-col justify-between bg-primary p-14 text-primary-foreground lg:flex">
@@ -36,7 +40,16 @@ export default function Login() {
           <p className="eyebrow mb-4">WELCOME BACK</p>
           <h2 className="text-3xl font-semibold tracking-tight">打开你的私人账簿</h2>
           <p className="mt-3 text-sm leading-7 text-muted-foreground">登录，继续整理你的财务日常。</p>
-          <LoginForm />
+          {ready ? (
+            <LoginForm />
+          ) : (
+            <div className="mt-8 space-y-3 rounded-lg border p-4 text-sm leading-7">
+              <p className="font-medium">尚未完成首次设置</p>
+              <p>
+                请运行 <code>scripts/setup.sh</code>，使用脚本打开的链接完成设置。
+              </p>
+            </div>
+          )}
         </div>
       </section>
     </main>

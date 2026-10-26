@@ -1,6 +1,7 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { plaidConfig } from "./helpers/plaid";
 const sdk = vi.hoisted(() => ({
+  institutionsGet: vi.fn(),
   linkTokenCreate: vi.fn(),
   accountsGet: vi.fn(),
   transactionsSync: vi.fn(),
@@ -18,7 +19,12 @@ vi.mock("plaid", async (importOriginal) => ({
     }
   },
 }));
-import { PlaidClient, createSandboxPublicToken, plaidError } from "@/lib/bank-sync/plaid-client";
+import {
+  PlaidClient,
+  createSandboxPublicToken,
+  plaidError,
+  testPlaidCredentials,
+} from "@/lib/bank-sync/plaid-client";
 const account = {
   account_id: "synthetic",
   name: "Example account 1234567890",
@@ -135,3 +141,13 @@ it("rejects production smoke before SDK calls and builds the documented Sandbox 
     },
   });
 });
+
+it.each(["sandbox", "production"] as const)(
+  "tests credentials with the authenticated institutions call in %s",
+  async (environment) => {
+    sdk.institutionsGet.mockResolvedValue({ data: { institutions: [] } });
+    await testPlaidCredentials({ ...plaidConfig, PLAID_ENV: environment, PLAID_ENABLED: "false" });
+    expect(sdk.institutionsGet).toHaveBeenCalledWith({ count: 1, offset: 0, country_codes: ["US"] });
+    expect(sdk.itemPublicTokenExchange).not.toHaveBeenCalled();
+  },
+);

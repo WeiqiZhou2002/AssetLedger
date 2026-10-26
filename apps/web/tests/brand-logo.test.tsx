@@ -10,16 +10,18 @@ vi.mock("next/navigation", () => ({
   usePathname: () => "/dashboard",
   useRouter: () => ({ refresh: vi.fn() }),
 }));
+vi.mock("@/db/client", () => ({ getDb: () => null }));
+vi.mock("@/lib/auth/setup", () => ({ hasUsers: async () => true }));
 vi.mock("@/components/login-form", () => ({ LoginForm: () => <form aria-label="登录" /> }));
 vi.mock("@/app/globals.css", () => ({}));
 
-it("uses the same decorative ledger mark in desktop/mobile navigation and above the login title", () => {
+it("uses the same decorative ledger mark in desktop/mobile navigation and above the login title", async () => {
   const mark = renderToStaticMarkup(<BrandLogo size={16} />);
   expect(mark).toContain('aria-hidden="true"');
   expect(mark).toContain('width="16"');
   const glyph = /d="([^"]+)"/.exec(mark)![1];
   const nav = renderToStaticMarkup(<AppNavigation />);
-  const login = renderToStaticMarkup(<Login />);
+  const login = renderToStaticMarkup(await Login());
   expect(nav.split(glyph)).toHaveLength(3);
   expect(login.split(glyph)).toHaveLength(3);
   expect(login.lastIndexOf(glyph)).toBeLessThan(login.indexOf("打开你的私人账簿"));

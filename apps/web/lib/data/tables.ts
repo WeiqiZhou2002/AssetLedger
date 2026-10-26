@@ -32,6 +32,7 @@ export const ownerTables = {
   accounts: schema.accounts,
   account_groups: schema.accountGroups,
   institutions: schema.institutions,
+  plaid_settings: schema.plaidSettings,
   user_settings: schema.userSettings,
   audit_logs: schema.auditLogs,
 } as const;

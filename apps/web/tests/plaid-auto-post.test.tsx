@@ -694,12 +694,12 @@ it("enforces authentication, origin, owner isolation and disabled-feature 404 on
   expect((await list.json()).count).toBe(0);
   vi.stubEnv("PLAID_ENABLED", "false");
   expect((await pendingRoute.GET(new NextRequest("http://localhost:3000/api/plaid/pending"))).status).toBe(
-    404,
+    401,
   );
   expect(
     (await settingRoute.POST(request("http://localhost:3000"), { params: Promise.resolve({ id: bank.id }) }))
       .status,
-  ).toBe(404);
+  ).toBe(401);
 });
 
 it("rolls back an earlier automatic transfer when a later row has no usable expense category", async () => {
