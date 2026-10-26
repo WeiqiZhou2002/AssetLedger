@@ -305,5 +305,5 @@ it("real migrations applied twice are a no-op without changing data", async () =
         "select count(*)::int as count from drizzle.__drizzle_migrations",
       )
     ).rows[0].count,
-  ).toBe(22);
+  ).toBe(23);
 });

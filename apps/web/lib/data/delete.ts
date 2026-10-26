@@ -56,6 +56,10 @@ export async function deleteOwnerData(
         config.PLAID_ENV && config.PLAID_SECRET && config.PLAID_CLIENT_ID,
         "删除数据前请配置对应环境的 Plaid 凭据以撤销连接",
       );
+      invariant(
+        connections.every((connection) => connection.environment === config.PLAID_ENV),
+        "请在银行连接设置中切换到对应环境并逐一撤销连接，再删除全部数据",
+      );
       const plaidConfig = { ...config, PLAID_ENABLED: "true" } as PlaidConfig;
       const client = bankClient ?? new PlaidClient(plaidConfig);
       for (const connection of connections) {

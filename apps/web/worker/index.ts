@@ -7,8 +7,7 @@ import { claimJob, failExpiredJobs, processJob } from "@/lib/imports/jobs";
 import { retainFiles } from "@/lib/imports/evidence";
 import { retainResetExports } from "@/lib/bank-sync/reset-files";
 import { scheduleSyncs } from "@/lib/bank-sync/connections";
-import { processBankJob } from "@/lib/bank-sync/jobs";
-import { PlaidClient } from "@/lib/bank-sync/plaid-client";
+import { processConfiguredBankJob } from "@/lib/bank-sync/jobs";
 async function main() {
   const env = readEnv();
   const stop = new AbortController();
@@ -28,9 +27,9 @@ async function main() {
           await scheduleSyncs(db, env);
           maintenanceAt = Date.now() + 60000;
         }
-        const job = await claimJob(db, workerId, new Date(), env.PLAID_ENABLED === "true");
+        const job = await claimJob(db, workerId, new Date(), true);
         if (job) {
-          if (job.kind === "plaid_sync") await processBankJob(db, job, new PlaidClient(env), env);
+          if (job.kind === "plaid_sync") await processConfiguredBankJob(db, job, env);
           else await processJob(db, job, env);
           continue;
         }

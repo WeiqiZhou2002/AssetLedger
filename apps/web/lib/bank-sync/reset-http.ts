@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { readEnv } from "@/lib/env";
+import { loadPlaidConfig } from "./config";
 import { json } from "@/lib/auth/http";
 import { ledgerRoute, type LedgerContext } from "@/lib/ledger/http";
 import type { ResetConfig } from "./reset-types";
@@ -9,8 +9,10 @@ export function resetRoute(
   mutating = false,
 ) {
   return async (request: NextRequest, context?: { params: Promise<{ id?: string }> }) => {
-    const config = readEnv();
-    if (config.PLAID_ENABLED !== "true") return json({ error: "未找到" }, 404);
-    return ledgerRoute((request, ctx) => handler(request, { ...ctx, config }), mutating)(request, context);
+    return ledgerRoute(async (request, ctx) => {
+      const { config } = await loadPlaidConfig(ctx.db, ctx.ownerId);
+      if (config.PLAID_ENABLED !== "true") return json({ error: "未找到" }, 404);
+      return handler(request, { ...ctx, config });
+    }, mutating)(request, context);
   };
 }

@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { eq, sql } from "drizzle-orm";
 import { getDb, getPool } from "@/db/client";
 import { users } from "@/db/schema";
-import { readEnv } from "@/lib/env";
+import { loadPlaidConfig } from "@/lib/bank-sync/config";
 import { affectedConnections, executeBackfill, planBackfill } from "@/lib/bank-sync/backfill";
 import { invariant } from "@/lib/ledger/errors";
 async function main() {
@@ -18,13 +18,13 @@ async function main() {
     },
   });
   invariant(values.owner && values.connections, "需要 --owner 和 --connections");
-  const config = readEnv();
   const db = getDb();
   const [owner] = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(sql`lower(${users.email})`, values.owner.toLowerCase()));
   invariant(owner, "所有者不存在");
+  const { config } = await loadPlaidConfig(db, owner.id);
   const selected =
     values.connections === "affected"
       ? await affectedConnections(db, owner.id, config)

@@ -794,7 +794,7 @@ it("API requires auth/origin, hides disabled endpoints and never returns tokens"
   expect((await listed.GET(request("/api/plaid/connections", "GET", token))).status).toBe(404);
   expect(
     (await links.POST(request("/api/plaid/link-token", "POST", null, { product: "transactions" }))).status,
-  ).toBe(404);
+  ).toBe(401);
 });
 
 it("pending becomes one posted row on a later sync, while disabled/mapping replay remains idempotent", async () => {
@@ -1057,7 +1057,7 @@ it("appends a new frozen currency without changing an existing published observa
   });
 });
 
-it("CSP keeps the nonce/strict-dynamic and gates Plaid hosts by environment", async () => {
+it("CSP keeps the nonce/strict-dynamic and exact Plaid hosts for saved settings", async () => {
   const { proxy } = await import("@/proxy");
   const sandbox = proxy(new NextRequest("http://localhost:3000/api/health")).headers.get(
     "Content-Security-Policy",
@@ -1070,5 +1070,5 @@ it("CSP keeps the nonce/strict-dynamic and gates Plaid hosts by environment", as
   vi.stubEnv("PLAID_ENABLED", "false");
   expect(
     proxy(new NextRequest("http://localhost:3000/api/health")).headers.get("Content-Security-Policy"),
-  ).not.toContain("plaid.com");
+  ).toContain("connect-src 'self' https://production.plaid.com https://sandbox.plaid.com");
 });

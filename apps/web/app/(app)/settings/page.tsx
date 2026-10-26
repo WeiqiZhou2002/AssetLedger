@@ -6,7 +6,6 @@ import { getSettings } from "@/lib/ledger/settings";
 import { listCategories } from "@/lib/ledger/categories";
 import { PageHeading } from "@/components/page-heading";
 import { LedgerSettings } from "@/components/ledger/settings-view";
-import { readEnv } from "@/lib/env";
 export const metadata = { title: "设置" };
 export default async function Settings() {
   const user = await requireUser();
@@ -49,14 +48,12 @@ export default async function Settings() {
       >
         数据导出、备份与删除 <ArrowUpRight size={17} />
       </Link>
-      {readEnv().PLAID_ENABLED === "true" ? (
-        <Link
-          href="/statements?tab=sync"
-          className="mb-7 flex items-center justify-between rounded-xl border bg-card p-5 text-sm font-medium"
-        >
-          银行连接 <ArrowUpRight size={17} />
-        </Link>
-      ) : null}
+      <Link
+        href="/settings/banks"
+        className="mb-7 flex items-center justify-between rounded-xl border bg-card p-5 text-sm font-medium"
+      >
+        银行连接 <ArrowUpRight size={17} />
+      </Link>
       <LedgerSettings settings={settings} categories={categories} />
     </>
   );

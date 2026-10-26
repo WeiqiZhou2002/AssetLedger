@@ -1,3 +1,4 @@
+import { loadPlaidConfig } from "./config";
 import { and, desc, eq, inArray, sql, ne } from "drizzle-orm";
 import { z } from "zod";
 import type { AppDb } from "@/db/types";
@@ -561,20 +562,25 @@ export async function removeConnection(
     return publicConnection(row);
   });
 }
-export async function scheduleSyncs(db: AppDb, config: PlaidConfig, now = new Date()) {
-  if (config.PLAID_ENABLED !== "true") return;
+export async function scheduleSyncs(db: AppDb, env: PlaidConfig, now = new Date()) {
   // Internal scheduler crosses owners; all work below uses the persisted owner's identity.
   const rows = await db
     .select()
     .from(bankConnections)
     .where(
       and(
-        eq(bankConnections.environment, config.PLAID_ENV),
         inArray(bankConnections.status, ["active", "consent_expiring"]),
         sql`${bankConnections.mappingConfirmedAt} IS NOT NULL`,
       ),
     );
+  const configs = new Map<string, PlaidConfig>();
   for (const row of rows) {
+    let config = configs.get(row.ownerId);
+    if (!config) {
+      config = (await loadPlaidConfig(db, row.ownerId, env)).config;
+      configs.set(row.ownerId, config);
+    }
+    if (config.PLAID_ENABLED !== "true" || row.environment !== config.PLAID_ENV) continue;
     if (
       row.lastSyncedAt &&
       now.getTime() - row.lastSyncedAt.getTime() < config.PLAID_SYNC_INTERVAL_HOURS * 3600000
