@@ -6,7 +6,12 @@ import { toast } from "sonner";
 import { api } from "@/components/ledger/forms";
 import { Button } from "@/components/ui/button";
 export const LINK_STORAGE = "asset-ledger:plaid-link:v1";
-export type LinkSession = { token: string; connectionId?: string; expiration: string };
+export type LinkSession = {
+  token: string;
+  connectionId?: string;
+  expiration: string;
+  allowDuplicate?: boolean;
+};
 export function LinkLaunch({
   session,
   oauth = false,
@@ -35,6 +40,7 @@ export function LinkLaunch({
             const result = await api<{ connection: { id: string } }>("/api/plaid/exchange", "POST", {
               public_token: publicToken,
               institution: metadata.institution ?? { institution_id: null, name: "Plaid institution" },
+              ...(session.allowDuplicate ? { allowDuplicate: true } : {}),
             });
             connectionId = result.connection.id;
           }
@@ -44,6 +50,7 @@ export function LinkLaunch({
           router.refresh();
           onDone(connectionId);
         } catch (error) {
+          sessionStorage.removeItem(LINK_STORAGE);
           toast.error(error instanceof Error ? error.message : "连接未完成，请到银行连接检查");
           router.refresh();
           onDone();
@@ -56,7 +63,7 @@ export function LinkLaunch({
       onDone();
     },
     onEvent: (event, metadata) => {
-      if (session.connectionId || event !== "SELECT_INSTITUTION") return;
+      if (session.connectionId || session.allowDuplicate || event !== "SELECT_INSTITUTION") return;
       const duplicate = existing.find((row) => row.institutionId === metadata.institution_id);
       if (duplicate) {
         exit({ force: true });

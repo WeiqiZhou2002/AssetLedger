@@ -100,6 +100,8 @@ async function connect(fake = client, ownerId = f.ownerId, mapping = true) {
     {
       public_token: "public-sandbox-synthetic",
       institution: { institution_id: "ins_synthetic", name: "Example Bank" },
+      // Sync fixtures deliberately use multiple Items at one synthetic institution.
+      allowDuplicate: true,
     },
     now,
   );

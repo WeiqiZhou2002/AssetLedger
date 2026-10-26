@@ -69,6 +69,8 @@ async function connect(id: string, type: string, accountId: string, autoPost = t
     {
       public_token: "synthetic-public",
       institution: { institution_id: "ins_synthetic", name: "Example Bank" },
+      // Multi-Item fixtures exercise posting/matching after the owner explicitly allows another login.
+      allowDuplicate: true,
     },
     now,
   );

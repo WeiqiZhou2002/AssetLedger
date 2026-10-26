@@ -33,7 +33,7 @@ export default async function AccountsPage() {
     <>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <PageHeading eyebrow="ACCOUNTS" title="账户" description="查看最新余额，点击账户管理详情。" />
-        {env.PLAID_ENABLED === "true" ? <BankConnectButton /> : null}
+        {env.PLAID_ENABLED === "true" ? <BankConnectButton environment={env.PLAID_ENV} /> : null}
       </div>
       <AccountsView
         accounts={accounts.filter((account) => !account.isSystem)}

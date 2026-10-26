@@ -78,6 +78,8 @@ async function connect() {
     {
       public_token: "public-sandbox-synthetic",
       institution: { institution_id: client.item.institutionId, name: client.item.institutionName },
+      // Account-creation fixtures intentionally add another login at the same institution.
+      allowDuplicate: true,
     },
     now,
   );
