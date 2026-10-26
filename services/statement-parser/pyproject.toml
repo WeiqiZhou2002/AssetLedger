@@ -1,0 +1,25 @@
+[project]
+name = "asset-ledger-statement-parser"
+version = "0.1.0"
+license = "AGPL-3.0-only"
+description = "Asset Ledger 本地账单解析服务"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pymupdf",
+    "python-multipart>=0.0.32",
+]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110

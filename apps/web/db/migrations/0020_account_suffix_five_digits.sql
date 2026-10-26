@@ -1,0 +1,2 @@
+ALTER TABLE "accounts" DROP CONSTRAINT "accounts_last4_check";--> statement-breakpoint
+ALTER TABLE "accounts" ADD CONSTRAINT "accounts_last4_check" CHECK ("accounts"."last4" IS NULL OR "accounts"."last4" ~ '^[0-9]{4,5}$');

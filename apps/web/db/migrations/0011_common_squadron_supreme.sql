@@ -1,0 +1,2 @@
+ALTER TABLE "bank_connections" ADD COLUMN "matching_version" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "bank_connections" ADD COLUMN "matching_generation" integer DEFAULT -1 NOT NULL;

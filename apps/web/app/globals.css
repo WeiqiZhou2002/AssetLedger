@@ -1,0 +1,98 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@custom-variant dark (&:is(.dark *));
+:root {
+  --background: #f6f5f1;
+  --foreground: #232c28;
+  --card: #fffefa;
+  --card-foreground: #232c28;
+  --popover: #fffefa;
+  --popover-foreground: #232c28;
+  --primary: #213e35;
+  --primary-foreground: #f7f8f2;
+  --secondary: #eaece3;
+  --secondary-foreground: #31463b;
+  --muted: #eeeee7;
+  --muted-foreground: #68716a;
+  --accent: #e7ede3;
+  --accent-foreground: #213e35;
+  --destructive: #a43b2e;
+  --border: #dedfd5;
+  --input: #d1d5c9;
+  --ring: #779175;
+  --radius: 0.6rem;
+  --chart-1: #213e35;
+  --chart-2: #9caf88;
+  --chart-3: #b78154;
+  --chart-4: #557c85;
+  --chart-5: #897a98;
+}
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Avenir Next", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+  button,
+  a,
+  input,
+  summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:not(:disabled),
+  summary {
+    cursor: pointer;
+  }
+  ::selection {
+    background: #d4dfc6;
+  }
+}
+.eyebrow {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.19em;
+  color: var(--muted-foreground);
+}
+.empty-panel {
+  background-image: linear-gradient(90deg, transparent calc(100% - 1px), #213e3505 0);
+  background-size: 48px 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

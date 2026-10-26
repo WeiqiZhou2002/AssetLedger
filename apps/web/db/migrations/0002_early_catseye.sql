@@ -1,0 +1,1 @@
+ALTER TABLE "journal_entries" ADD COLUMN "is_summary" boolean DEFAULT false NOT NULL;

@@ -1,0 +1,2 @@
+DROP INDEX "journal_entries_provider_unique";--> statement-breakpoint
+CREATE UNIQUE INDEX "journal_entries_provider_unique" ON "journal_entries" USING btree ("owner_id","provider_account_id","provider_transaction_id") WHERE "journal_entries"."provider_account_id" IS NOT NULL AND "journal_entries"."provider_transaction_id" IS NOT NULL AND "journal_entries"."status" <> 'voided';

@@ -1,0 +1,45 @@
+# Real financial data — never commit
+Asset.xlsx
+*.xlsx
+!fixtures/**/*.xlsx
+samples/
+/data/
+/apps/web/data/
+uploads/
+backups/
+*.pdf
+!fixtures/**/*.pdf
+!services/statement-parser/tests/fixtures/**/*.pdf
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Node / Next
+node_modules/
+.next/
+out/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+playwright-report/
+test-results/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Build outputs and local caches
+**/dist/
+.pnpm-store/
+.uv-cache/
+.deploy/

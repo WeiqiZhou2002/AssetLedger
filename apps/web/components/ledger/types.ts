@@ -1,0 +1,11 @@
+import type { accounts, categories, institutions } from "@/db/schema";
+import type { getEntry } from "@/lib/ledger/entries";
+import type { listEntries } from "@/lib/ledger/queries";
+import type { listPurchaseGroups } from "@/lib/ledger/purchase-groups";
+export type Account = typeof accounts.$inferSelect;
+export type Category = typeof categories.$inferSelect;
+export type Institution = typeof institutions.$inferSelect;
+export type AccountBalance = Account & { balance: string };
+export type EntryDetail = Awaited<ReturnType<typeof getEntry>>;
+export type EntryList = Awaited<ReturnType<typeof listEntries>>;
+export type Group = Awaited<ReturnType<typeof listPurchaseGroups>>[number];

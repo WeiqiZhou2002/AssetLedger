@@ -1,0 +1,123 @@
+name: asset-ledger
+x-app: &app
+  image: asset-ledger-web:${FINTRACKER_IMAGE_TAG:-local}
+  build:
+    context: .
+    dockerfile: apps/web/Dockerfile
+  environment:
+    DATABASE_URL: postgresql://${POSTGRES_USER:-asset_ledger}:${POSTGRES_PASSWORD:?请设置 POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-asset_ledger}
+    APP_URL: ${APP_URL:-http://localhost:3000}
+    EXTRA_ALLOWED_ORIGINS: ${EXTRA_ALLOWED_ORIGINS:-}
+    APP_SECRET: ${APP_SECRET:?请设置 APP_SECRET}
+    ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    BASE_CURRENCY: ${BASE_CURRENCY:-USD}
+    TZ: ${TZ:-America/Los_Angeles}
+    DATA_DIR: /data
+    MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+    MAX_PDF_PAGES: ${MAX_PDF_PAGES:-60}
+    FILE_RETENTION_DAYS: ${FILE_RETENTION_DAYS:-30}
+    AI_PARSING_ENABLED: ${AI_PARSING_ENABLED:-false}
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    AI_MODEL: ${AI_MODEL:-}
+    PLAID_ENABLED: ${PLAID_ENABLED:-false}
+    PLAID_ENV: ${PLAID_ENV:-sandbox}
+    PLAID_CLIENT_ID: ${PLAID_CLIENT_ID:-}
+    PLAID_SECRET: ${PLAID_SECRET:-}
+    PLAID_REDIRECT_URI: ${PLAID_REDIRECT_URI:-}
+    PLAID_SYNC_INTERVAL_HOURS: ${PLAID_SYNC_INTERVAL_HOURS:-12}
+    PLAID_DAYS_REQUESTED: ${PLAID_DAYS_REQUESTED:-90}
+    PLAID_HISTORY_START: ${PLAID_HISTORY_START:-}
+    FX_STALE_DAYS: ${FX_STALE_DAYS:-7}
+    STALE_ACCOUNT_DAYS: ${STALE_ACCOUNT_DAYS:-14}
+    PARSER_URL: http://parser:8000
+    TRUST_CLOUDFLARE_HEADERS: ${TRUST_CLOUDFLARE_HEADERS:-false}
+  volumes:
+    - uploads:/data
+  depends_on:
+    db:
+      condition: service_healthy
+  restart: unless-stopped
+  init: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-asset_ledger}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?请设置 POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-asset_ledger}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    networks: [internal]
+    restart: unless-stopped
+
+  parser:
+    image: asset-ledger-parser:${FINTRACKER_IMAGE_TAG:-local}
+    build: ./services/statement-parser
+    environment:
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+      MAX_PDF_PAGES: ${MAX_PDF_PAGES:-60}
+    networks: [internal]
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    mem_limit: 512m
+    cpus: 1.0
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8000/health", timeout=3)']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  web:
+    <<: *app
+    ports:
+      - 127.0.0.1:3000:3000
+    networks: [internal, edge]
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:3000/api/health").then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))']
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  worker:
+    <<: *app
+    command: [node, dist/worker.cjs]
+    networks: [internal, edge]
+    stop_grace_period: 150s
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.3
+    profiles: [tunnel]
+    command: [tunnel, --no-autoupdate, run]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      web:
+        condition: service_healthy
+    networks: [edge]
+    restart: unless-stopped
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+
+networks:
+  internal:
+    internal: true
+  edge:
+volumes:
+  postgres:
+  uploads:

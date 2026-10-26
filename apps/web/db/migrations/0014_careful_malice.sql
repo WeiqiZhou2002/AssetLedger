@@ -1,0 +1,1 @@
+ALTER TABLE "bank_connections" ADD COLUMN "days_requested" integer DEFAULT 90 NOT NULL;

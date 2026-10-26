@@ -1,0 +1,38 @@
+import * as schema from "@/db/schema";
+// Explicit allowlist: auth tables and secrets can never enter an export.
+// Children precede parents so the same inventory also governs owner-only deletion.
+export const ownerTables = {
+  transfer_pair_confirmations: schema.transferPairConfirmations,
+  transfer_account_assignments: schema.transferAccountAssignments,
+  transfer_pair_rejections: schema.transferPairRejections,
+  bank_reset_exports: schema.bankResetExports,
+  merchant_category_memory: schema.merchantCategoryMemory,
+  loyalty_transfers: schema.loyaltyTransfers,
+  loyalty_events: schema.loyaltyEvents,
+  loyalty_observations: schema.loyaltyObservations,
+  loyalty_cpp_history: schema.loyaltyCppHistory,
+  loyalty_accounts: schema.loyaltyAccounts,
+  loyalty_programs: schema.loyaltyPrograms,
+  import_approvals: schema.importApprovals,
+  import_rows: schema.importRows,
+  bank_sync_runs: schema.bankSyncRuns,
+  import_jobs: schema.importJobs,
+  csv_mappings: schema.csvMappings,
+  statements: schema.statements,
+  snapshot_items: schema.snapshotItems,
+  snapshot_fx: schema.snapshotFx,
+  balance_snapshots: schema.balanceSnapshots,
+  fx_rates: schema.fxRates,
+  postings: schema.postings,
+  journal_entries: schema.journalEntries,
+  purchase_groups: schema.purchaseGroups,
+  categories: schema.categories,
+  bank_connection_accounts: schema.bankConnectionAccounts,
+  bank_connections: schema.bankConnections,
+  accounts: schema.accounts,
+  account_groups: schema.accountGroups,
+  institutions: schema.institutions,
+  user_settings: schema.userSettings,
+  audit_logs: schema.auditLogs,
+} as const;
+export const exportTableNames = ["profile", ...Object.keys(ownerTables)];
