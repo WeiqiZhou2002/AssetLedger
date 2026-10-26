@@ -42,7 +42,81 @@
 
 **文件加口令后仍等同银行数据访问钥匙；导入后请删除文件。迁移完成后停用旧实例的 Plaid 同步，不要在旧实例点「删除连接」或「删除全部个人数据」：这些操作会撤销共享的 Plaid Item，新实例也会失效。**
 
+## 在自己电脑上使用
+
+### 准备与一键安装
+
+安装并启动 Docker Desktop（macOS / Windows），或 Docker Engine + Compose v2（Linux）；同时准备 Git、Bash 和 OpenSSL。Windows 请在启用了 Docker Desktop 集成的 WSL 中运行下列命令。
+
+```sh
+git clone https://github.com/WeiqiZhou2002/AssetLedger.git
+cd AssetLedger
+scripts/setup.sh
+```
+
+脚本只询问管理员邮箱和密码（至少 12 字符，隐藏输入并确认），自动生成随机密钥和数据库密码，检测本机时区，默认关闭 Plaid。首次构建需要几分钟；健康检查通过后打开 <http://localhost:3000>，使用刚才的邮箱和密码登录。
+
+`.env` 权限为 `600`，管理员密码只通过首次启动的环境传入，初始化成功后会重新创建 web / worker 清除该密码。再次运行时保留已有 `.env` 的全部内容，不重新询问或生成密钥。健康检查超时可运行 `docker compose logs --tail=50 web` 排查，配置和数据会保留。
+
+高级用法：`scripts/setup.sh --no-start` 只创建配置，不需要 Docker，也不创建管理员；自动化可通过环境预设 `ADMIN_EMAIL` / `ADMIN_PASSWORD`。仅准备配置后首次启动，需重新通过环境提供密码（不写入命令历史）：
+
+```bash
+read -r -s -p '管理员密码：' ADMIN_PASSWORD; printf '\n'
+export ADMIN_PASSWORD
+scripts/setup.sh
+unset ADMIN_PASSWORD
+```
+
+### 开机自启与安装为应用
+
+服务使用 `restart: unless-stopped`，Docker 启动后会恢复未被手动停止的容器。macOS / Windows 在 Docker Desktop 设置中启用 [Start Docker Desktop when you sign in](https://docs.docker.com/desktop/settings-and-maintenance/settings/)；使用 systemd 的 Linux 可运行：
+
+```sh
+sudo systemctl enable --now docker
+```
+
+在 Chrome / Edge 中打开应用后，点击地址栏的安装图标，选择「安装 Asset Ledger」（名称可能显示为「私人账簿」）；也可从浏览器菜单安装。macOS Sonoma 14 及以上的 Safari 可用「文件 → 添加到程序坞」，详见 [Apple 网页 App 说明](https://support.apple.com/zh-cn/104996)。
+
+`localhost` 只能在部署的同一台电脑访问。手机访问与 PWA 安装需要 HTTPS 地址，请按下方 [Cloudflare Tunnel 部署说明](#docker-部署与-cloudflare-tunnel)配置；电脑和 Docker 仍需保持运行。
+
+### 备份
+
+**安装完成后，立即将 `.env` 备份到密码管理器；修改配置后更新备份。`APP_SECRET` 加密银行令牌、TOTP 和卡片数据，丢失后无法恢复；`BACKUP_PASSPHRASE` 用于解密数据备份，两者都必须保管。**
+
+在仓库目录导出备份口令并备份（也可单独安全导出 `BACKUP_PASSPHRASE`）：
+
+```sh
+set -a; . ./.env; set +a; scripts/backup.sh
+```
+
+加密的数据库与上传文件备份保存在 `backups/`，请定期复制到另一台设备或安全存储。Linux 可用 `crontab -e` 设置每天凌晨 3 点备份，把路径换成自己的仓库位置，并确保 cron 的 `PATH` 可找到 Docker、Bash 和 OpenSSL：
+
+```cron
+0 3 * * * cd /absolute/path/AssetLedger && /bin/bash -c 'set -a; . ./.env; set +a; scripts/backup.sh'
+```
+
+macOS 可用 launchd（或 cron）定时运行同一命令，需配置工具的 `PATH`，并保持电脑唤醒、Docker Desktop 运行。恢复时使用原 `.env` 中的密钥和备份口令：
+
+```sh
+set -a; . ./.env; set +a
+scripts/restore.sh backups/REPLACE_WITH_BACKUP_FILE.tar.enc
+```
+
+恢复会要求输入「恢复并覆盖全部数据」，并替换现有数据库和上传文件；完整说明见下方「数据与隐私」。**`docker compose down -v` 会删除数据卷，不能用于普通停止或更新。**
+
+### 更新与停止
+
+更新前先备份，再在仓库目录运行（启动时会自动执行数据库迁移）：
+
+```sh
+git pull && docker compose up -d --build
+```
+
+`docker compose stop` 暂停服务，`docker compose down` 停止并移除容器与网络，两者都保留数据卷。重新启动运行 `docker compose up -d`。
+
 ## 本地开发
+
+只想自托管使用可直接运行 [`scripts/setup.sh`](scripts/setup.sh)，无需配置下面的开发环境。
 
 使用 Node.js 22（`.nvmrc`）、pnpm 11.20.0、PostgreSQL 17；PDF 服务使用 Python 3.12、uv，扫描件还需 Tesseract。所有开发数据使用合成资料。
 
@@ -83,7 +157,7 @@ uv run uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
 
 ## Docker 部署与 Cloudflare Tunnel
 
-配置根目录 `.env` 后启动：
+首次本机部署可运行 [`scripts/setup.sh`](scripts/setup.sh) 自动准备配置并启动，见「在自己电脑上使用」。手动部署则配置根目录 `.env` 后启动：
 
 ```sh
 docker compose up --build -d
