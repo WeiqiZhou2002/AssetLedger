@@ -185,7 +185,7 @@ Plaid 环境变量的 Client ID 和 Secret 同时非空时，优先于「设置 
 | --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------- |
 | `DATABASE_URL`              | `postgresql://USER:PASSWORD@localhost:5432/DATABASE` | 必填；Compose 使用内部 db 地址。                                                |
 | `APP_SECRET`                | 空，必填，至少 32 字符                               | 加密密钥；必须持久保管，不能随意替换。                                          |
-| `APP_URL`                   | `http://localhost:3000`                              | 浏览器完整来源；远程为 HTTPS 域名。                                             |
+| `APP_URL`                   | `http://localhost:3000`                              | 浏览器完整来源；远程为 HTTPS 域名；本机时 localhost、127.0.0.1、[::1] 通用。    |
 | `EXTRA_ALLOWED_ORIGINS`     | 空                                                   | 可选额外完整来源，逗号分隔，仍校验 Host。                                       |
 | `DATA_DIR`                  | `./data`                                             | 私有上传目录；Compose 固定 `/data`。                                            |
 | `BASE_CURRENCY`             | `USD`                                                | 新建管理员的默认基准货币。                                                      |
