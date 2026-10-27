@@ -130,10 +130,14 @@ export function PlaidSettingsForm({
                 value={redirectUri}
                 onChange={(event) => setRedirectUri(event.target.value)}
                 maxLength={2048}
-                placeholder={callbackUrl}
+                placeholder="电脑浏览器可留空"
               />
               <p className="text-xs leading-6 break-all text-muted-foreground">
-                请在 Plaid Dashboard 注册 {callbackUrl}，并在此填写相同地址。Production 需要 HTTPS。
+                电脑浏览器连接 OAuth 银行时会弹出银行窗口，这里可以留空。手机（Safari、主屏幕应用或 App
+                内浏览器）需要 HTTPS 地址：
+                {callbackUrl.startsWith("https://")
+                  ? ` 在 Plaid Dashboard 登记 ${callbackUrl}，并在此填写相同地址。`
+                  : " 当前访问地址不是 HTTPS（Production 不接受），请先通过 Tailscale Serve 或 Cloudflare Tunnel 提供 HTTPS 并把 APP_URL 改为该地址，再登记其下的 /plaid/oauth。Sandbox 可使用 http://localhost。"}
               </p>
             </div>
             <Label className="flex items-center gap-3">
