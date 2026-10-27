@@ -101,6 +101,39 @@ it("allows configured origin/host pairs without mixing them", () => {
     );
   }
 });
+it("treats loopback names as one origin only for loopback app URLs", () => {
+  const request = (origin: string, host: string) =>
+    new Request("http://127.0.0.1:3000/api/auth/login", { method: "POST", headers: { origin, host } });
+  for (const [origin, host] of [
+    ["http://localhost:3000", "localhost:3000"],
+    ["http://127.0.0.1:3000", "127.0.0.1:3000"],
+    ["http://[::1]:3000", "[::1]:3000"],
+  ]) {
+    expect(() => assertOrigin(request(origin, host), "http://localhost:3000")).not.toThrow();
+    expect(() => assertOrigin(request(origin, host), "http://127.0.0.1:3000")).not.toThrow();
+    expect(() =>
+      assertOrigin(request(origin, host), "https://ledger.example.com", "http://localhost:3000"),
+    ).not.toThrow();
+  }
+  expect(() => assertOrigin(request("http://127.0.0.1", "127.0.0.1"), "http://localhost")).not.toThrow();
+  for (const [origin, host] of [
+    ["http://127.0.0.1:3001", "127.0.0.1:3001"],
+    ["https://127.0.0.1:3000", "127.0.0.1:3000"],
+    ["http://127.0.0.1:3000", "localhost:3000"],
+    ["http://localhost:3000", "127.0.0.1:3000"],
+    ["http://127.0.0.2:3000", "127.0.0.2:3000"],
+    ["http://evil.example.com:3000", "127.0.0.1:3000"],
+  ]) {
+    expect(() => assertOrigin(request(origin, host), "http://localhost:3000")).toThrow("请求来源");
+  }
+  for (const [origin, host] of [
+    ["http://localhost:3000", "localhost:3000"],
+    ["http://127.0.0.1", "127.0.0.1"],
+    ["https://127.0.0.1", "127.0.0.1"],
+  ]) {
+    expect(() => assertOrigin(request(origin, host), "https://ledger.example.com")).toThrow("请求来源");
+  }
+});
 it("rejects malformed configured extra origins without leaking config", () => {
   vi.stubEnv("EXTRA_ALLOWED_ORIGINS", "https://example.com/path");
   expect(() => readEnv()).toThrow("EXTRA_ALLOWED_ORIGINS");
