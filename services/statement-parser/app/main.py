@@ -11,7 +11,7 @@ app = FastAPI(title="Asset Ledger Parser", docs_url=None, redoc_url=None, openap
 
 @app.get("/health")
 def health() -> dict[str, str]:
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.1.1"}
 
 
 async def read_pdf(file: UploadFile) -> bytes:
