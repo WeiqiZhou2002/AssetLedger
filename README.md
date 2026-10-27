@@ -28,7 +28,7 @@
 
 `PLAID_HISTORY_START` 默认留空，起点为所有者本地今天减 `PLAID_DAYS_REQUESTED`（默认 90 天）。可填写固定日期，最多回溯 730 天。配置改变不会改写现有 Item 的历史深度或已保存的导入日期；「补导历史流水」只能重放 Plaid 实际持有的历史。连接卡显示可用历史起点，重置会先预览影响范围并要求输入确认文字。
 
-同步间隔不代表银行数据刷新频率。应用使用缓存余额，不调用付费实时余额接口，也不导入投资交易。Trial 的名额不会因删除 Item 返还，已有连接应优先重新授权。OAuth 返回地址需与 Plaid Dashboard 注册值一致。
+同步间隔不代表银行数据刷新频率。应用使用缓存余额，不调用付费实时余额接口，也不导入投资交易。Trial 的名额不会因删除 Item 返还，已有连接应优先重新授权。电脑浏览器连接 OAuth 银行无需回跳地址；手机使用时需要与 Plaid Dashboard 注册值一致的 HTTPS 回跳地址（见「在自己电脑上使用」中的 OAuth 说明）。
 
 同一环境已连接的机构会在 Link 选择机构时提示「重新授权已有连接」。确有第二套银行登录时，可明确选择「仍然添加新连接（会占用一个新的 Plaid Item）」；该选择只对本次 Link 生效。服务端也在交换 public token 前检查重复机构。页面计数包含本地保留的已撤销和迁入连接，不能还原其他实例的创建历史，最终额度以 Plaid 为准。
 
@@ -67,6 +67,8 @@ docker compose exec web node dist/admin.cjs --setup-link
 `.env` 权限为 `600`，新生成的 `ADMIN_EMAIL` 和 `ADMIN_PASSWORD` 均留空。自动化同时提供非空的 `ADMIN_EMAIL` / `ADMIN_PASSWORD` 时，仍通过单次容器命令创建管理员，密码只放在该命令的环境中，不写入文件或命令参数。再次运行保留已有 `.env` 的全部内容和密钥；已有管理员则跳过创建。已有 `.env` 中配置的管理员变量仍按原有 Compose 规则生效。
 
 Plaid 可在「设置 → 银行连接」填写环境、Client ID、Secret 和可选 OAuth 回跳地址，成功「测试凭据」后保存并启用。Secret 加密保存且不回显；留空保留现有值。环境变量中的 `PLAID_CLIENT_ID` 和 `PLAID_SECRET` 都非空时优先使用服务器配置，页面只读。切换环境需要确认，另一环境的连接会暂停同步，切回后恢复。
+
+**OAuth 银行与 HTTPS**：在电脑浏览器中连接银行时，Plaid 会弹出银行网站窗口完成 OAuth 授权，不需要回跳地址，因此本机 `http://localhost` 安装在 Production 环境下也能连接 OAuth 银行，「OAuth 回跳地址」留空即可（不要拦截 Plaid 的弹出窗口）。手机上的 Safari、主屏幕应用和 App 内浏览器通常不支持弹出窗口，需要 HTTPS 回跳地址；Production 不接受 `http://localhost`（仅 Sandbox 允许）。手机使用本机安装时，可用 [Tailscale Serve](https://tailscale.com/kb/1312/serve) 为这台电脑提供仅自己设备可访问的 HTTPS 地址，或按下文配置 Cloudflare Tunnel；随后把 `APP_URL` 改为该 HTTPS 地址，在 Plaid Dashboard 登记 `https://你的地址/plaid/oauth` 并填入设置页。Plaid 只会让浏览器跳转到该地址，不会从服务器访问它，因此不必对公网开放。
 
 同一台机器安装第二套时，在另一份尚无 `.env` 的仓库中指定不同的项目名，使容器和数据卷相互独立：
 
@@ -199,33 +201,33 @@ Plaid 环境变量的 Client ID 和 Secret 同时非空时，优先于「设置 
 
 以下应用变量对应 [`lib/env.ts`](apps/web/lib/env.ts)，完整示例见 [`.env.example`](.env.example)。空白表示不启用或需要自行填写，凭据只使用自己的值。
 
-| 变量                        | 默认 / 示例                                          | 用途                                                   |
-| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
-| `DATABASE_URL`              | `postgresql://USER:PASSWORD@localhost:5432/DATABASE` | 必填；Compose 使用内部 db 地址。                       |
-| `APP_SECRET`                | 空，必填，至少 32 字符                               | 加密密钥；必须持久保管，不能随意替换。                 |
-| `APP_URL`                   | `http://localhost:3000`                              | 浏览器完整来源；远程为 HTTPS 域名。                    |
-| `EXTRA_ALLOWED_ORIGINS`     | 空                                                   | 可选额外完整来源，逗号分隔，仍校验 Host。              |
-| `DATA_DIR`                  | `./data`                                             | 私有上传目录；Compose 固定 `/data`。                   |
-| `BASE_CURRENCY`             | `USD`                                                | 新建管理员的默认基准货币。                             |
-| `TZ`                        | `America/Los_Angeles`                                | 默认时区；业务日期使用所有者时区。                     |
-| `PARSER_URL`                | 空                                                   | 本地解析服务 URL；Compose 为 `http://parser:8000`。    |
-| `MAX_UPLOAD_MB`             | `20`                                                 | 上传大小上限，1–100 MB。                               |
-| `MAX_PDF_PAGES`             | `60`                                                 | PDF 页数上限，1–500。                                  |
-| `FILE_RETENTION_DAYS`       | `30`                                                 | 已批准账单原件与页面缓存的保留天数；未批准不自动清理。 |
-| `FX_STALE_DAYS`             | `7`                                                  | 汇率陈旧提示阈值。                                     |
-| `STALE_ACCOUNT_DAYS`        | `14`                                                 | 余额估值的新鲜度阈值；手工更新提醒按各账户设置。       |
-| `TRUST_CLOUDFLARE_HEADERS`  | `false`                                              | 仅可信 Tunnel 下采用 Cloudflare 客户端 IP 头。         |
-| `PLAID_ENABLED`             | `false`                                              | 开启银行连接与调度。                                   |
-| `PLAID_ENV`                 | `sandbox`                                            | `sandbox` 或 `production`。                            |
-| `PLAID_CLIENT_ID`           | 空                                                   | Plaid 客户端 ID。                                      |
-| `PLAID_SECRET`              | 空                                                   | 与环境匹配的 Plaid 密钥。                              |
-| `PLAID_REDIRECT_URI`        | 空                                                   | 已注册 OAuth 返回 URL；无 query/hash，生产须 HTTPS。   |
-| `PLAID_SYNC_INTERVAL_HOURS` | `12`                                                 | 调度间隔，1–168 小时。                                 |
-| `PLAID_DAYS_REQUESTED`      | `90`                                                 | 无固定起点时的历史天数，1–730。                        |
-| `PLAID_HISTORY_START`       | 空                                                   | 可选固定日期 `YYYY-MM-DD`；空为最近配置天数。          |
-| `AI_PARSING_ENABLED`        | `false`                                              | AI 解析开关，仍需逐份预览并确认。                      |
-| `ANTHROPIC_API_KEY`         | 空                                                   | 可选 AI 提供方密钥。                                   |
-| `AI_MODEL`                  | 空                                                   | 留空使用代码默认模型，发送前展示具体模型。             |
+| 变量                        | 默认 / 示例                                          | 用途                                                                            |
+| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `DATABASE_URL`              | `postgresql://USER:PASSWORD@localhost:5432/DATABASE` | 必填；Compose 使用内部 db 地址。                                                |
+| `APP_SECRET`                | 空，必填，至少 32 字符                               | 加密密钥；必须持久保管，不能随意替换。                                          |
+| `APP_URL`                   | `http://localhost:3000`                              | 浏览器完整来源；远程为 HTTPS 域名。                                             |
+| `EXTRA_ALLOWED_ORIGINS`     | 空                                                   | 可选额外完整来源，逗号分隔，仍校验 Host。                                       |
+| `DATA_DIR`                  | `./data`                                             | 私有上传目录；Compose 固定 `/data`。                                            |
+| `BASE_CURRENCY`             | `USD`                                                | 新建管理员的默认基准货币。                                                      |
+| `TZ`                        | `America/Los_Angeles`                                | 默认时区；业务日期使用所有者时区。                                              |
+| `PARSER_URL`                | 空                                                   | 本地解析服务 URL；Compose 为 `http://parser:8000`。                             |
+| `MAX_UPLOAD_MB`             | `20`                                                 | 上传大小上限，1–100 MB。                                                        |
+| `MAX_PDF_PAGES`             | `60`                                                 | PDF 页数上限，1–500。                                                           |
+| `FILE_RETENTION_DAYS`       | `30`                                                 | 已批准账单原件与页面缓存的保留天数；未批准不自动清理。                          |
+| `FX_STALE_DAYS`             | `7`                                                  | 汇率陈旧提示阈值。                                                              |
+| `STALE_ACCOUNT_DAYS`        | `14`                                                 | 余额估值的新鲜度阈值；手工更新提醒按各账户设置。                                |
+| `TRUST_CLOUDFLARE_HEADERS`  | `false`                                              | 仅可信 Tunnel 下采用 Cloudflare 客户端 IP 头。                                  |
+| `PLAID_ENABLED`             | `false`                                              | 开启银行连接与调度。                                                            |
+| `PLAID_ENV`                 | `sandbox`                                            | `sandbox` 或 `production`。                                                     |
+| `PLAID_CLIENT_ID`           | 空                                                   | Plaid 客户端 ID。                                                               |
+| `PLAID_SECRET`              | 空                                                   | 与环境匹配的 Plaid 密钥。                                                       |
+| `PLAID_REDIRECT_URI`        | 空                                                   | 已注册 OAuth 返回 URL；电脑浏览器可留空，手机需 HTTPS（生产不接受 localhost）。 |
+| `PLAID_SYNC_INTERVAL_HOURS` | `12`                                                 | 调度间隔，1–168 小时。                                                          |
+| `PLAID_DAYS_REQUESTED`      | `90`                                                 | 无固定起点时的历史天数，1–730。                                                 |
+| `PLAID_HISTORY_START`       | 空                                                   | 可选固定日期 `YYYY-MM-DD`；空为最近配置天数。                                   |
+| `AI_PARSING_ENABLED`        | `false`                                              | AI 解析开关，仍需逐份预览并确认。                                               |
+| `ANTHROPIC_API_KEY`         | 空                                                   | 可选 AI 提供方密钥。                                                            |
+| `AI_MODEL`                  | 空                                                   | 留空使用代码默认模型，发送前展示具体模型。                                      |
 
 以下变量由当前启动脚本、Compose 或备份工具读取，不是页面设置：
 
