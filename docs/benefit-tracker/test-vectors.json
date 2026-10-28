@@ -1,0 +1,3099 @@
+{
+  "format": "card-benefit-progress-vectors",
+  "format_version": 1,
+  "constants": {
+    "tax_tolerance_rate": "0.15"
+  },
+  "notes": "Synthetic data only: fictional issuer, products, keywords and amounts. Compare money as decimals.",
+  "vectors": [
+    {
+      "id": "bt-001",
+      "title": "Calendar monthly credit: full, partial, current and upcoming periods",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "coffee",
+            "name": "Coffee Credit",
+            "family": "dining",
+            "match": {
+              "keywords": ["BEANHOUSE"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "10.00",
+                "period": "monthly",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-01-05",
+          "amount": "10.00",
+          "currency": "USD",
+          "description": "BEANHOUSE CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-02-03",
+          "amount": "7.50",
+          "currency": "USD",
+          "description": "BEANHOUSE CREDIT"
+        }
+      ],
+      "as_of": "2026-03-15",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "coffee",
+          "e2": "coffee"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "coffee",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "120.00",
+              "used": "17.50",
+              "expired_unused": "2.50",
+              "available": "10.00",
+              "upcoming": "90.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-01-31",
+                "cap": "10.00",
+                "used": "10.00",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e1"]
+              },
+              {
+                "start": "2026-02-01",
+                "end": "2026-02-28",
+                "cap": "10.00",
+                "used": "7.50",
+                "remaining": "2.50",
+                "state": "partial",
+                "entries": ["e2"]
+              },
+              {
+                "start": "2026-03-01",
+                "end": "2026-03-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "unused",
+                "entries": []
+              },
+              {
+                "start": "2026-04-01",
+                "end": "2026-04-30",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-05-01",
+                "end": "2026-05-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-06-01",
+                "end": "2026-06-30",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-07-01",
+                "end": "2026-07-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-08-01",
+                "end": "2026-08-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-09-01",
+                "end": "2026-09-30",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-10-01",
+                "end": "2026-10-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-11-01",
+                "end": "2026-11-30",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-12-01",
+                "end": "2026-12-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-002",
+      "title": "Over-cap quarter moves its earliest credit inside the posting lag back to a quarter with room",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "dining",
+            "name": "Dining Credit",
+            "family": "dining",
+            "match": {
+              "keywords": ["TABLEFINDER"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "50.00",
+                "period": "quarterly",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 56,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-04-06",
+          "amount": "40.00",
+          "currency": "USD",
+          "description": "TABLEFINDER CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-05-20",
+          "amount": "50.00",
+          "currency": "USD",
+          "description": "TABLEFINDER CREDIT"
+        }
+      ],
+      "as_of": "2026-06-15",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "dining",
+          "e2": "dining"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "dining",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "200.00",
+              "used": "90.00",
+              "expired_unused": "10.00",
+              "available": "0.00",
+              "upcoming": "100.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-03-31",
+                "cap": "50.00",
+                "used": "40.00",
+                "remaining": "10.00",
+                "state": "partial",
+                "entries": ["e1"]
+              },
+              {
+                "start": "2026-04-01",
+                "end": "2026-06-30",
+                "cap": "50.00",
+                "used": "50.00",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e2"]
+              },
+              {
+                "start": "2026-07-01",
+                "end": "2026-09-30",
+                "cap": "50.00",
+                "used": "0.00",
+                "remaining": "50.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-10-01",
+                "end": "2026-12-31",
+                "cap": "50.00",
+                "used": "0.00",
+                "remaining": "50.00",
+                "state": "upcoming",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-003",
+      "title": "Credits after the posting lag stay in their own quarter and report excess",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "dining",
+            "name": "Dining Credit",
+            "family": "dining",
+            "match": {
+              "keywords": ["TABLEFINDER"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "50.00",
+                "period": "quarterly",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 56,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-05-30",
+          "amount": "40.00",
+          "currency": "USD",
+          "description": "TABLEFINDER CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-06-10",
+          "amount": "50.00",
+          "currency": "USD",
+          "description": "TABLEFINDER CREDIT"
+        }
+      ],
+      "as_of": "2026-06-15",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "dining",
+          "e2": "dining"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "dining",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "200.00",
+              "used": "90.00",
+              "expired_unused": "50.00",
+              "available": "0.00",
+              "upcoming": "100.00",
+              "excess": "40.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-03-31",
+                "cap": "50.00",
+                "used": "0.00",
+                "remaining": "50.00",
+                "state": "unused",
+                "entries": []
+              },
+              {
+                "start": "2026-04-01",
+                "end": "2026-06-30",
+                "cap": "50.00",
+                "used": "90.00",
+                "remaining": "0.00",
+                "state": "over",
+                "entries": ["e1", "e2"]
+              },
+              {
+                "start": "2026-07-01",
+                "end": "2026-09-30",
+                "cap": "50.00",
+                "used": "0.00",
+                "remaining": "50.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-10-01",
+                "end": "2026-12-31",
+                "cap": "50.00",
+                "used": "0.00",
+                "remaining": "50.00",
+                "state": "upcoming",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-004",
+      "title": "No overflow means no move: a January credit for a December purchase counts in January",
+      "note": "Documents the conservative default. The owner fixes such cases with a period assignment (bt-005).",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "airline",
+            "name": "Airline Credit",
+            "family": "airline",
+            "match": {
+              "keywords": ["SKYFEE"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "200.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 56,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2025-12-20",
+          "amount": "150.00",
+          "currency": "USD",
+          "description": "SKYFEE CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-01-08",
+          "amount": "40.00",
+          "currency": "USD",
+          "description": "SKYFEE CREDIT"
+        }
+      ],
+      "as_of": "2026-02-01",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "airline",
+          "e2": "airline"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "airline",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "200.00",
+              "used": "40.00",
+              "expired_unused": "0.00",
+              "available": "160.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "200.00",
+                "used": "40.00",
+                "remaining": "160.00",
+                "state": "partial",
+                "entries": ["e2"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-005",
+      "title": "Owner-assigned period overrides the posting date",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "airline",
+            "name": "Airline Credit",
+            "family": "airline",
+            "match": {
+              "keywords": ["SKYFEE"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "200.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 56,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2025-12-20",
+          "amount": "150.00",
+          "currency": "USD",
+          "description": "SKYFEE CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-01-08",
+          "amount": "40.00",
+          "currency": "USD",
+          "description": "SKYFEE CREDIT",
+          "assigned_period_start": "2025-01-01"
+        }
+      ],
+      "as_of": "2026-02-01",
+      "view_year": 2025,
+      "expect": {
+        "matches": {
+          "e1": "airline",
+          "e2": "airline"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "airline",
+            "status": "ok",
+            "year": {
+              "start": "2025-01-01",
+              "end": "2025-12-31",
+              "cap": "200.00",
+              "used": "190.00",
+              "expired_unused": "10.00",
+              "available": "0.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2025-01-01",
+                "end": "2025-12-31",
+                "cap": "200.00",
+                "used": "190.00",
+                "remaining": "10.00",
+                "state": "partial",
+                "entries": ["e1", "e2"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-006",
+      "title": "Semiannual calendar credit with a year summary",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "hotel",
+            "name": "Hotel Credit",
+            "family": "hotel",
+            "match": {
+              "keywords": ["STAYWELL"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "150.00",
+                "period": "semiannual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 90,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-03-02",
+          "amount": "150.00",
+          "currency": "USD",
+          "description": "STAYWELL HOTEL CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-08-15",
+          "amount": "60.00",
+          "currency": "USD",
+          "description": "STAYWELL HOTEL CREDIT"
+        }
+      ],
+      "as_of": "2026-10-27",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "hotel",
+          "e2": "hotel"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "hotel",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "300.00",
+              "used": "210.00",
+              "expired_unused": "0.00",
+              "available": "90.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-06-30",
+                "cap": "150.00",
+                "used": "150.00",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e1"]
+              },
+              {
+                "start": "2026-07-01",
+                "end": "2026-12-31",
+                "cap": "150.00",
+                "used": "60.00",
+                "remaining": "90.00",
+                "state": "partial",
+                "entries": ["e2"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-007",
+      "title": "Anniversary-year credit, with a late credit moved back to the previous card year",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "travel",
+            "name": "Travel Credit",
+            "family": "travel",
+            "match": {
+              "keywords": ["VOYAGER TRAVEL"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "300.00",
+                "period": "annual",
+                "reset_basis": "anniversary",
+                "max_posting_lag_days": 28,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": "2024-03-15",
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-03-10",
+          "amount": "120.00",
+          "currency": "USD",
+          "description": "VOYAGER TRAVEL CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-04-01",
+          "amount": "150.00",
+          "currency": "USD",
+          "description": "VOYAGER TRAVEL CREDIT"
+        },
+        {
+          "id": "e3",
+          "date": "2026-09-01",
+          "amount": "200.00",
+          "currency": "USD",
+          "description": "VOYAGER TRAVEL CREDIT"
+        }
+      ],
+      "as_of": "2026-10-27",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "travel",
+          "e2": "travel",
+          "e3": "travel"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "travel",
+            "status": "ok",
+            "year": {
+              "start": "2026-03-15",
+              "end": "2027-03-14",
+              "cap": "300.00",
+              "used": "200.00",
+              "expired_unused": "0.00",
+              "available": "100.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-03-15",
+                "end": "2027-03-14",
+                "cap": "300.00",
+                "used": "200.00",
+                "remaining": "100.00",
+                "state": "partial",
+                "entries": ["e3"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-008",
+      "title": "Anniversary quarters clamp to month end from the anchor without drifting",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "streaming",
+            "name": "Streaming Credit",
+            "family": "entertainment",
+            "match": {
+              "keywords": ["STREAMBOX"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "30.00",
+                "period": "quarterly",
+                "reset_basis": "anniversary",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": "2025-01-31",
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-04-29",
+          "amount": "30.00",
+          "currency": "USD",
+          "description": "STREAMBOX CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-04-30",
+          "amount": "10.00",
+          "currency": "USD",
+          "description": "STREAMBOX CREDIT"
+        }
+      ],
+      "as_of": "2026-05-10",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "streaming",
+          "e2": "streaming"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "streaming",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-31",
+              "end": "2027-01-30",
+              "cap": "120.00",
+              "used": "40.00",
+              "expired_unused": "0.00",
+              "available": "20.00",
+              "upcoming": "60.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-31",
+                "end": "2026-04-29",
+                "cap": "30.00",
+                "used": "30.00",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e1"]
+              },
+              {
+                "start": "2026-04-30",
+                "end": "2026-07-30",
+                "cap": "30.00",
+                "used": "10.00",
+                "remaining": "20.00",
+                "state": "partial",
+                "entries": ["e2"]
+              },
+              {
+                "start": "2026-07-31",
+                "end": "2026-10-30",
+                "cap": "30.00",
+                "used": "0.00",
+                "remaining": "30.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-10-31",
+                "end": "2027-01-30",
+                "cap": "30.00",
+                "used": "0.00",
+                "remaining": "30.00",
+                "state": "upcoming",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-009",
+      "title": "Leap-day anniversary uses February 28 in common years",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "feecare",
+            "name": "Feecare Credit",
+            "match": {
+              "keywords": ["FEECARE"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "100.00",
+                "period": "annual",
+                "reset_basis": "anniversary",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": "2024-02-29",
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-02-27",
+          "amount": "100.00",
+          "currency": "USD",
+          "description": "FEECARE CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-02-28",
+          "amount": "25.00",
+          "currency": "USD",
+          "description": "FEECARE CREDIT"
+        }
+      ],
+      "as_of": "2026-03-01",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "feecare",
+          "e2": "feecare"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "feecare",
+            "status": "ok",
+            "year": {
+              "start": "2026-02-28",
+              "end": "2027-02-27",
+              "cap": "100.00",
+              "used": "25.00",
+              "expired_unused": "0.00",
+              "available": "75.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-02-28",
+                "end": "2027-02-27",
+                "cap": "100.00",
+                "used": "25.00",
+                "remaining": "75.00",
+                "state": "partial",
+                "entries": ["e2"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-010",
+      "title": "Statement-anniversary year ends on the first statement close on or after the anniversary",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "travel",
+            "name": "Travel Credit",
+            "family": "travel",
+            "match": {
+              "keywords": ["VOYAGER TRAVEL"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "300.00",
+                "period": "annual",
+                "reset_basis": "anniversary_statement",
+                "max_posting_lag_days": 28,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": "2023-05-20",
+        "statement_close_day": 3,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-05-25",
+          "amount": "100.00",
+          "currency": "USD",
+          "description": "VOYAGER TRAVEL CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-06-04",
+          "amount": "80.00",
+          "currency": "USD",
+          "description": "VOYAGER TRAVEL CREDIT"
+        }
+      ],
+      "as_of": "2026-10-27",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "travel",
+          "e2": "travel"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "travel",
+            "status": "ok",
+            "year": {
+              "start": "2026-06-04",
+              "end": "2027-06-03",
+              "cap": "300.00",
+              "used": "80.00",
+              "expired_unused": "0.00",
+              "available": "220.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-06-04",
+                "end": "2027-06-03",
+                "cap": "300.00",
+                "used": "80.00",
+                "remaining": "220.00",
+                "state": "partial",
+                "entries": ["e2"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-011",
+      "title": "Anniversary credit without an anniversary date asks for it instead of guessing",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "travel",
+            "name": "Travel Credit",
+            "family": "travel",
+            "match": {
+              "keywords": ["VOYAGER TRAVEL"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "300.00",
+                "period": "annual",
+                "reset_basis": "anniversary",
+                "max_posting_lag_days": 28,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-04-01",
+          "amount": "150.00",
+          "currency": "USD",
+          "description": "VOYAGER TRAVEL CREDIT"
+        }
+      ],
+      "as_of": "2026-10-27",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "travel"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "travel",
+            "status": "needs_anniversary",
+            "entries": ["e1"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-012",
+      "title": "Statement-anniversary credit without a statement close day asks for it; other credits still compute",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "travel",
+            "name": "Travel Credit",
+            "family": "travel",
+            "match": {
+              "keywords": ["VOYAGER TRAVEL"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "300.00",
+                "period": "annual",
+                "reset_basis": "anniversary_statement",
+                "max_posting_lag_days": 28,
+                "status": "synthetic"
+              }
+            ]
+          },
+          {
+            "id": "lounge",
+            "name": "Lounge Credit",
+            "match": {
+              "keywords": ["SKYLOUNGE"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "100.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": "2023-05-20",
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-04-01",
+          "amount": "150.00",
+          "currency": "USD",
+          "description": "VOYAGER TRAVEL CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-04-02",
+          "amount": "40.00",
+          "currency": "USD",
+          "description": "SKYLOUNGE CREDIT"
+        }
+      ],
+      "as_of": "2026-10-27",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "travel",
+          "e2": "lounge"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "travel",
+            "status": "needs_statement_day",
+            "entries": ["e1"]
+          },
+          {
+            "credit": "lounge",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "100.00",
+              "used": "40.00",
+              "expired_unused": "0.00",
+              "available": "60.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "100.00",
+                "used": "40.00",
+                "remaining": "60.00",
+                "state": "partial",
+                "entries": ["e2"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-013",
+      "title": "Benefit refresh: semiannual terms end, annual terms begin, and a late credit moves across versions",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "hotel",
+            "name": "Hotel Credit",
+            "family": "hotel",
+            "match": {
+              "keywords": ["STAYWELL"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": "2025-12-31",
+                "amount": "100.00",
+                "period": "semiannual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 28,
+                "status": "synthetic"
+              },
+              {
+                "effective_from": "2026-01-01",
+                "effective_to": null,
+                "amount": "200.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 28,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2025-11-20",
+          "amount": "60.00",
+          "currency": "USD",
+          "description": "STAYWELL HOTEL CREDIT"
+        },
+        {
+          "id": "e4",
+          "date": "2026-01-05",
+          "amount": "40.00",
+          "currency": "USD",
+          "description": "STAYWELL HOTEL CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-01-10",
+          "amount": "100.00",
+          "currency": "USD",
+          "description": "STAYWELL HOTEL CREDIT"
+        },
+        {
+          "id": "e3",
+          "date": "2026-02-15",
+          "amount": "100.00",
+          "currency": "USD",
+          "description": "STAYWELL HOTEL CREDIT"
+        }
+      ],
+      "as_of": "2026-03-01",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "hotel",
+          "e4": "hotel",
+          "e2": "hotel",
+          "e3": "hotel"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "hotel",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "200.00",
+              "used": "200.00",
+              "expired_unused": "0.00",
+              "available": "0.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "200.00",
+                "used": "200.00",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e2", "e3"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-014",
+      "title": "Credit after effective_to: inside the lag it fills the last period, after the lag it is unmatched",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "tickets",
+            "name": "Tickets Credit",
+            "match": {
+              "keywords": ["SEATSPOT"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": "2027-12-31",
+                "amount": "150.00",
+                "period": "semiannual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 28,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2027-12-20",
+          "amount": "100.00",
+          "currency": "USD",
+          "description": "SEATSPOT CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2028-01-15",
+          "amount": "40.00",
+          "currency": "USD",
+          "description": "SEATSPOT CREDIT"
+        },
+        {
+          "id": "e3",
+          "date": "2028-02-10",
+          "amount": "30.00",
+          "currency": "USD",
+          "description": "SEATSPOT CREDIT"
+        }
+      ],
+      "as_of": "2028-03-01",
+      "view_year": 2027,
+      "expect": {
+        "matches": {
+          "e1": "tickets",
+          "e2": "tickets",
+          "e3": null
+        },
+        "unmatched": [
+          {
+            "entry": "e3",
+            "reason": "no_effective_version"
+          }
+        ],
+        "instances": [
+          {
+            "credit": "tickets",
+            "status": "ok",
+            "year": {
+              "start": "2027-01-01",
+              "end": "2027-12-31",
+              "cap": "300.00",
+              "used": "140.00",
+              "expired_unused": "160.00",
+              "available": "0.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2027-01-01",
+                "end": "2027-06-30",
+                "cap": "150.00",
+                "used": "0.00",
+                "remaining": "150.00",
+                "state": "unused",
+                "entries": []
+              },
+              {
+                "start": "2027-07-01",
+                "end": "2027-12-31",
+                "cap": "150.00",
+                "used": "140.00",
+                "remaining": "10.00",
+                "state": "partial",
+                "entries": ["e1", "e2"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-015",
+      "title": "Owner amount override from a date, and a credit the owner stopped tracking",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "coffee",
+            "name": "Coffee Credit",
+            "family": "dining",
+            "match": {
+              "keywords": ["BEANHOUSE"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "10.00",
+                "period": "monthly",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          },
+          {
+            "id": "gym",
+            "name": "Gym Credit",
+            "family": "fitness",
+            "match": {
+              "keywords": ["GYMCO"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "100.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [
+        {
+          "credit": "coffee",
+          "effective_from": "2026-04-01",
+          "amount": "12.00",
+          "disabled": false
+        },
+        {
+          "credit": "gym",
+          "effective_from": null,
+          "amount": null,
+          "disabled": true
+        }
+      ],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-03-05",
+          "amount": "10.00",
+          "currency": "USD",
+          "description": "BEANHOUSE CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-04-05",
+          "amount": "12.00",
+          "currency": "USD",
+          "description": "BEANHOUSE CREDIT"
+        },
+        {
+          "id": "e3",
+          "date": "2026-02-01",
+          "amount": "100.00",
+          "currency": "USD",
+          "description": "GYMCO CREDIT"
+        }
+      ],
+      "as_of": "2026-05-15",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "coffee",
+          "e2": "coffee",
+          "e3": null
+        },
+        "unmatched": [
+          {
+            "entry": "e3",
+            "reason": "credit_disabled"
+          }
+        ],
+        "instances": [
+          {
+            "credit": "coffee",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "138.00",
+              "used": "22.00",
+              "expired_unused": "20.00",
+              "available": "12.00",
+              "upcoming": "84.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-01-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "unused",
+                "entries": []
+              },
+              {
+                "start": "2026-02-01",
+                "end": "2026-02-28",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "unused",
+                "entries": []
+              },
+              {
+                "start": "2026-03-01",
+                "end": "2026-03-31",
+                "cap": "10.00",
+                "used": "10.00",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e1"]
+              },
+              {
+                "start": "2026-04-01",
+                "end": "2026-04-30",
+                "cap": "12.00",
+                "used": "12.00",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e2"]
+              },
+              {
+                "start": "2026-05-01",
+                "end": "2026-05-31",
+                "cap": "12.00",
+                "used": "0.00",
+                "remaining": "12.00",
+                "state": "unused",
+                "entries": []
+              },
+              {
+                "start": "2026-06-01",
+                "end": "2026-06-30",
+                "cap": "12.00",
+                "used": "0.00",
+                "remaining": "12.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-07-01",
+                "end": "2026-07-31",
+                "cap": "12.00",
+                "used": "0.00",
+                "remaining": "12.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-08-01",
+                "end": "2026-08-31",
+                "cap": "12.00",
+                "used": "0.00",
+                "remaining": "12.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-09-01",
+                "end": "2026-09-30",
+                "cap": "12.00",
+                "used": "0.00",
+                "remaining": "12.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-10-01",
+                "end": "2026-10-31",
+                "cap": "12.00",
+                "used": "0.00",
+                "remaining": "12.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-11-01",
+                "end": "2026-11-30",
+                "cap": "12.00",
+                "used": "0.00",
+                "remaining": "12.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-12-01",
+                "end": "2026-12-31",
+                "cap": "12.00",
+                "used": "0.00",
+                "remaining": "12.00",
+                "state": "upcoming",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-016",
+      "title": "Keyword normalization, whole-word matching, specificity, ties and exclusions",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "stream",
+            "name": "Stream Credit",
+            "match": {
+              "keywords": ["FLIX"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          },
+          {
+            "id": "stream-premium",
+            "name": "Stream Premium Credit",
+            "match": {
+              "keywords": ["FLIX PREMIUM"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          },
+          {
+            "id": "music",
+            "name": "Music Credit",
+            "match": {
+              "keywords": ["TUNEUP"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          },
+          {
+            "id": "podcast",
+            "name": "Podcast Credit",
+            "match": {
+              "keywords": ["TUNEUP"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          },
+          {
+            "id": "lodging",
+            "name": "Lodging Credit",
+            "match": {
+              "keywords": ["STAYWELL"],
+              "exclude": ["STAYWELL POINTS"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-02-01",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "FLIX PREMIUM CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-02-02",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "flix credit"
+        },
+        {
+          "id": "e3",
+          "date": "2026-02-03",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "FLIXPREMIUM CREDIT"
+        },
+        {
+          "id": "e4",
+          "date": "2026-02-04",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "ＦＬＩＸ ＣＲＥＤＩＴ"
+        },
+        {
+          "id": "e5",
+          "date": "2026-02-05",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "TUNEUP CREDIT"
+        },
+        {
+          "id": "e6",
+          "date": "2026-02-06",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "STAYWELL POINTS CREDIT"
+        },
+        {
+          "id": "e7",
+          "date": "2026-02-07",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "CREDIT",
+          "merchant": "Staywell"
+        },
+        {
+          "id": "e8",
+          "date": "2026-02-08",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "FLIX-PREMIUM*CREDIT"
+        }
+      ],
+      "as_of": "2026-03-01",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "stream-premium",
+          "e2": "stream",
+          "e3": null,
+          "e4": "stream",
+          "e5": null,
+          "e6": null,
+          "e7": "lodging",
+          "e8": "stream-premium"
+        },
+        "unmatched": [
+          {
+            "entry": "e3",
+            "reason": "no_match"
+          },
+          {
+            "entry": "e5",
+            "reason": "ambiguous"
+          },
+          {
+            "entry": "e6",
+            "reason": "no_match"
+          }
+        ],
+        "instances": [
+          {
+            "credit": "stream",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "10.00",
+              "expired_unused": "0.00",
+              "available": "990.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "10.00",
+                "remaining": "990.00",
+                "state": "partial",
+                "entries": ["e2", "e4"]
+              }
+            ],
+            "unplaced": []
+          },
+          {
+            "credit": "stream-premium",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "10.00",
+              "expired_unused": "0.00",
+              "available": "990.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "10.00",
+                "remaining": "990.00",
+                "state": "partial",
+                "entries": ["e1", "e8"]
+              }
+            ],
+            "unplaced": []
+          },
+          {
+            "credit": "music",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "0.00",
+              "expired_unused": "0.00",
+              "available": "1000.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "0.00",
+                "remaining": "1000.00",
+                "state": "unused",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          },
+          {
+            "credit": "podcast",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "0.00",
+              "expired_unused": "0.00",
+              "available": "1000.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "0.00",
+                "remaining": "1000.00",
+                "state": "unused",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          },
+          {
+            "credit": "lodging",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "5.00",
+              "expired_unused": "0.00",
+              "available": "995.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "5.00",
+                "remaining": "995.00",
+                "state": "partial",
+                "entries": ["e7"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-017",
+      "title": "Owner assignment beats keywords; an explicit none keeps the credit under other benefits",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "stream",
+            "name": "Stream Credit",
+            "match": {
+              "keywords": ["FLIX"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          },
+          {
+            "id": "music",
+            "name": "Music Credit",
+            "match": {
+              "keywords": ["TUNEUP"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-02-01",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "FLIX CREDIT",
+          "assigned_credit": "music"
+        },
+        {
+          "id": "e2",
+          "date": "2026-02-02",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "FLIX CREDIT",
+          "assigned_credit": null
+        },
+        {
+          "id": "e3",
+          "date": "2026-02-03",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "MYSTERY CREDIT",
+          "assigned_credit": "stream"
+        }
+      ],
+      "as_of": "2026-03-01",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "music",
+          "e2": null,
+          "e3": "stream"
+        },
+        "unmatched": [
+          {
+            "entry": "e2",
+            "reason": "owner_none"
+          }
+        ],
+        "instances": [
+          {
+            "credit": "stream",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "5.00",
+              "expired_unused": "0.00",
+              "available": "995.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "5.00",
+                "remaining": "995.00",
+                "state": "partial",
+                "entries": ["e3"]
+              }
+            ],
+            "unplaced": []
+          },
+          {
+            "credit": "music",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "5.00",
+              "expired_unused": "0.00",
+              "available": "995.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "5.00",
+                "remaining": "995.00",
+                "state": "partial",
+                "entries": ["e1"]
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-018",
+      "title": "Detected family is a fallback only when exactly one credit of that family is in effect",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "dining",
+            "name": "Dining Credit",
+            "family": "dining",
+            "match": {
+              "keywords": ["TABLEFINDER"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          },
+          {
+            "id": "travel-a",
+            "name": "Travel A Credit",
+            "family": "travel",
+            "match": {
+              "keywords": ["ALPHA TRAVEL"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          },
+          {
+            "id": "travel-b",
+            "name": "Travel B Credit",
+            "family": "travel",
+            "match": {
+              "keywords": ["BETA TRAVEL"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "1000.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-02-01",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "DINING CREDIT",
+          "family": "dining"
+        },
+        {
+          "id": "e2",
+          "date": "2026-02-02",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "TRAVEL CREDIT",
+          "family": "travel"
+        },
+        {
+          "id": "e3",
+          "date": "2026-02-03",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "SOMETHING CREDIT"
+        },
+        {
+          "id": "e4",
+          "date": "2026-02-04",
+          "amount": "5.00",
+          "currency": "USD",
+          "description": "TABLEFINDER CREDIT",
+          "family": "travel"
+        }
+      ],
+      "as_of": "2026-03-01",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "dining",
+          "e2": null,
+          "e3": null,
+          "e4": "dining"
+        },
+        "unmatched": [
+          {
+            "entry": "e2",
+            "reason": "ambiguous"
+          },
+          {
+            "entry": "e3",
+            "reason": "no_match"
+          }
+        ],
+        "instances": [
+          {
+            "credit": "dining",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "10.00",
+              "expired_unused": "0.00",
+              "available": "990.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "10.00",
+                "remaining": "990.00",
+                "state": "partial",
+                "entries": ["e1", "e4"]
+              }
+            ],
+            "unplaced": []
+          },
+          {
+            "credit": "travel-a",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "0.00",
+              "expired_unused": "0.00",
+              "available": "1000.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "0.00",
+                "remaining": "1000.00",
+                "state": "unused",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          },
+          {
+            "credit": "travel-b",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "1000.00",
+              "used": "0.00",
+              "expired_unused": "0.00",
+              "available": "1000.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "1000.00",
+                "used": "0.00",
+                "remaining": "1000.00",
+                "state": "unused",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-019",
+      "title": "A credit in another currency is not converted or matched",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "coffee",
+            "name": "Coffee Credit",
+            "family": "dining",
+            "match": {
+              "keywords": ["BEANHOUSE"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "10.00",
+                "period": "monthly",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-01-05",
+          "amount": "10.00",
+          "currency": "CAD",
+          "description": "BEANHOUSE CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-01-06",
+          "amount": "10.00",
+          "currency": "USD",
+          "description": "BEANHOUSE CREDIT"
+        }
+      ],
+      "as_of": "2026-01-31",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": null,
+          "e2": "coffee"
+        },
+        "unmatched": [
+          {
+            "entry": "e1",
+            "reason": "currency_mismatch"
+          }
+        ],
+        "instances": [
+          {
+            "credit": "coffee",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "120.00",
+              "used": "10.00",
+              "expired_unused": "0.00",
+              "available": "0.00",
+              "upcoming": "110.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-01-31",
+                "cap": "10.00",
+                "used": "10.00",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e2"]
+              },
+              {
+                "start": "2026-02-01",
+                "end": "2026-02-28",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-03-01",
+                "end": "2026-03-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-04-01",
+                "end": "2026-04-30",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-05-01",
+                "end": "2026-05-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-06-01",
+                "end": "2026-06-30",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-07-01",
+                "end": "2026-07-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-08-01",
+                "end": "2026-08-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-09-01",
+                "end": "2026-09-30",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-10-01",
+                "end": "2026-10-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-11-01",
+                "end": "2026-11-30",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-12-01",
+                "end": "2026-12-31",
+                "cap": "10.00",
+                "used": "0.00",
+                "remaining": "10.00",
+                "state": "upcoming",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-020",
+      "title": "A card without a selected product keeps every credit under other benefits",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "coffee",
+            "name": "Coffee Credit",
+            "family": "dining",
+            "match": {
+              "keywords": ["BEANHOUSE"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "10.00",
+                "period": "monthly",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": null,
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-01-05",
+          "amount": "10.00",
+          "currency": "USD",
+          "description": "BEANHOUSE CREDIT"
+        }
+      ],
+      "as_of": "2026-01-31",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": null
+        },
+        "unmatched": [
+          {
+            "entry": "e1",
+            "reason": "no_product"
+          }
+        ],
+        "instances": []
+      }
+    },
+    {
+      "id": "bt-021",
+      "title": "Cap plus tax: tolerance keeps taxed credits full and still allows a late credit to move back",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "membership",
+            "name": "Membership Credit",
+            "family": "shopping",
+            "match": {
+              "keywords": ["MARTPLUS"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "12.95",
+                "period": "monthly",
+                "reset_basis": "calendar",
+                "cap_excludes_tax": true,
+                "max_posting_lag_days": 56,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-01-03",
+          "amount": "13.89",
+          "currency": "USD",
+          "description": "MARTPLUS CREDIT"
+        },
+        {
+          "id": "e2",
+          "date": "2026-01-20",
+          "amount": "13.89",
+          "currency": "USD",
+          "description": "MARTPLUS CREDIT"
+        },
+        {
+          "id": "e3",
+          "date": "2026-02-18",
+          "amount": "13.89",
+          "currency": "USD",
+          "description": "MARTPLUS CREDIT"
+        }
+      ],
+      "as_of": "2026-02-25",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "membership",
+          "e2": "membership",
+          "e3": "membership"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "membership",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "155.40",
+              "used": "27.78",
+              "expired_unused": "0.00",
+              "available": "0.00",
+              "upcoming": "129.50",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-01-31",
+                "cap": "12.95",
+                "used": "13.89",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e2"]
+              },
+              {
+                "start": "2026-02-01",
+                "end": "2026-02-28",
+                "cap": "12.95",
+                "used": "13.89",
+                "remaining": "0.00",
+                "state": "full",
+                "entries": ["e3"]
+              },
+              {
+                "start": "2026-03-01",
+                "end": "2026-03-31",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-04-01",
+                "end": "2026-04-30",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-05-01",
+                "end": "2026-05-31",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-06-01",
+                "end": "2026-06-30",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-07-01",
+                "end": "2026-07-31",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-08-01",
+                "end": "2026-08-31",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-09-01",
+                "end": "2026-09-30",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-10-01",
+                "end": "2026-10-31",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-11-01",
+                "end": "2026-11-30",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              },
+              {
+                "start": "2026-12-01",
+                "end": "2026-12-31",
+                "cap": "12.95",
+                "used": "0.00",
+                "remaining": "12.95",
+                "state": "upcoming",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-022",
+      "title": "Multi-year credit: one credit opens a four-year window",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "trusted-traveler",
+            "name": "Trusted Traveler Credit",
+            "family": "travel-program",
+            "match": {
+              "keywords": ["TRUSTED TRAVELER"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "120.00",
+                "period": "multi_year",
+                "reset_basis": "since_last_credit",
+                "period_years": 4,
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2023-08-10",
+          "amount": "100.00",
+          "currency": "USD",
+          "description": "TRUSTED TRAVELER CREDIT"
+        }
+      ],
+      "as_of": "2026-10-27",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "trusted-traveler"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "trusted-traveler",
+            "status": "ok",
+            "eligible": false,
+            "window": {
+              "start": "2023-08-10",
+              "end": "2027-08-09",
+              "cap": "120.00",
+              "used": "100.00",
+              "next_eligible_on": "2027-08-10"
+            },
+            "entries": ["e1"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "bt-023",
+      "title": "A to-verify version maps its credits but computes no progress",
+      "catalog": {
+        "id": "example-voyager",
+        "issuer": "Example Bank",
+        "name": "Voyager Card",
+        "currency": "USD",
+        "credits": [
+          {
+            "id": "pending",
+            "name": "Pending Credit",
+            "match": {
+              "keywords": ["PERKPASS"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": null,
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "to_verify"
+              }
+            ]
+          },
+          {
+            "id": "lounge",
+            "name": "Lounge Credit",
+            "match": {
+              "keywords": ["SKYLOUNGE"]
+            },
+            "versions": [
+              {
+                "effective_from": null,
+                "effective_to": null,
+                "amount": "100.00",
+                "period": "annual",
+                "reset_basis": "calendar",
+                "max_posting_lag_days": 0,
+                "status": "synthetic"
+              }
+            ]
+          }
+        ]
+      },
+      "account": {
+        "currency": "USD",
+        "product_id": "example-voyager",
+        "anniversary": null,
+        "statement_close_day": null,
+        "tracking_start": null
+      },
+      "overrides": [],
+      "entries": [
+        {
+          "id": "e1",
+          "date": "2026-03-01",
+          "amount": "50.00",
+          "currency": "USD",
+          "description": "PERKPASS CREDIT"
+        }
+      ],
+      "as_of": "2026-10-27",
+      "view_year": 2026,
+      "expect": {
+        "matches": {
+          "e1": "pending"
+        },
+        "unmatched": [],
+        "instances": [
+          {
+            "credit": "pending",
+            "status": "to_verify",
+            "entries": ["e1"]
+          },
+          {
+            "credit": "lounge",
+            "status": "ok",
+            "year": {
+              "start": "2026-01-01",
+              "end": "2026-12-31",
+              "cap": "100.00",
+              "used": "0.00",
+              "expired_unused": "0.00",
+              "available": "100.00",
+              "upcoming": "0.00",
+              "excess": "0.00"
+            },
+            "periods": [
+              {
+                "start": "2026-01-01",
+                "end": "2026-12-31",
+                "cap": "100.00",
+                "used": "0.00",
+                "remaining": "100.00",
+                "state": "unused",
+                "entries": []
+              }
+            ],
+            "unplaced": []
+          }
+        ]
+      }
+    }
+  ]
+}

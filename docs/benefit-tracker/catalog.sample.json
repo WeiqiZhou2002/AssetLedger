@@ -1,0 +1,588 @@
+{
+  "schema_version": 1,
+  "catalog_version": "2026.10.27-draft",
+  "license": "CC0-1.0",
+  "notes": "Draft seed for review. Amounts are taken from the cited public issuer pages on last_verified; keywords are matching heuristics, not issuer terms. Versions marked to_verify must not be used for progress until verified.",
+  "products": [
+    {
+      "id": "us-amex-platinum",
+      "issuer": "American Express",
+      "name": "Platinum Card",
+      "country": "US",
+      "currency": "USD",
+      "aliases": ["AMEX PLATINUM", "PLATINUM CARD"],
+      "sources": [
+        {
+          "id": "amex-platinum-page",
+          "url": "https://www.americanexpress.com/us/credit-cards/card/platinum/",
+          "title": "Platinum Card product page",
+          "accessed": "2026-10-27"
+        },
+        {
+          "id": "amex-platinum-terms",
+          "url": "https://www.americanexpress.com/en-us/credit-cards/apply/terms/personal/platinum-card/25330-10-0/",
+          "title": "Platinum Card offer and benefit terms (URL carries an offer code and may change)",
+          "accessed": "2026-10-27"
+        }
+      ],
+      "notes": "effective_from of the current terms is not stated on the cited pages and is left null (to verify). The terms say the benefit period follows the date the merchant submits the eligible purchase, and credits can take up to 8 weeks to post (90 days for the hotel credit).",
+      "credits": [
+        {
+          "id": "hotel",
+          "name": "Hotel Credit",
+          "family": "hotel",
+          "delivery": "statement_credit",
+          "enrollment": "none",
+          "match": { "keywords": ["FHR", "FINE HOTELS", "HOTEL COLLECTION", "HOTEL CREDIT"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "300.00",
+              "period": "semiannual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": 90,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $300 January to June and $300 July to December on prepaid Fine Hotels + Resorts, The Hotel Collection and Airbnb Luxe bookings through Amex Travel. From 2027-01-01 Fine Hotels + Resorts bookings also need a two-night minimum (eligibility change, not an amount change)."
+            }
+          ]
+        },
+        {
+          "id": "resy",
+          "name": "Resy Credit",
+          "family": "dining",
+          "delivery": "statement_credit",
+          "enrollment": "required",
+          "match": { "keywords": ["RESY"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "100.00",
+              "period": "quarterly",
+              "reset_basis": "calendar",
+              "period_boundaries": "inferred",
+              "max_posting_lag_days": 56,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $100 each quarter, up to $400 per calendar year. Quarter boundaries are not spelled out; calendar quarters are inferred from the calendar-year total."
+            }
+          ]
+        },
+        {
+          "id": "digital-entertainment",
+          "name": "Digital Entertainment Credit",
+          "family": "entertainment",
+          "delivery": "statement_credit",
+          "enrollment": "required",
+          "match": { "keywords": ["DIGITAL ENTERTAINMENT"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "25.00",
+              "period": "monthly",
+              "reset_basis": "calendar",
+              "period_boundaries": "inferred",
+              "max_posting_lag_days": 56,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $25 each month at participating partners, up to $300 each calendar year."
+            }
+          ]
+        },
+        {
+          "id": "lululemon",
+          "name": "lululemon Credit",
+          "delivery": "statement_credit",
+          "enrollment": "required",
+          "match": { "keywords": ["LULULEMON"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "75.00",
+              "period": "quarterly",
+              "reset_basis": "calendar",
+              "period_boundaries": "inferred",
+              "max_posting_lag_days": 56,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $75 each quarter, up to $300 per calendar year, at U.S. lululemon stores (excluding outlets), lululemon.com and the app."
+            }
+          ]
+        },
+        {
+          "id": "walmart-plus",
+          "name": "Walmart+ Credit",
+          "family": "shopping",
+          "delivery": "statement_credit",
+          "enrollment": "unknown",
+          "match": { "keywords": ["WALMART+"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "12.95",
+              "period": "monthly",
+              "reset_basis": "calendar",
+              "period_boundaries": "inferred",
+              "cap_excludes_tax": true,
+              "max_posting_lag_days": null,
+              "source": "amex-platinum-page",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $12.95 plus applicable taxes each month for one monthly Walmart+ membership. The cited terms page did not include this credit, so the posting lag is unknown."
+            }
+          ]
+        },
+        {
+          "id": "uber-one",
+          "name": "Uber One Credit",
+          "delivery": "statement_credit",
+          "enrollment": "none",
+          "match": { "keywords": ["UBER ONE"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "120.00",
+              "period": "annual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": null,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $120 per calendar year on monthly or annual Uber One membership fees."
+            }
+          ]
+        },
+        {
+          "id": "airline-fee",
+          "name": "Airline Fee Credit",
+          "family": "airline",
+          "delivery": "statement_credit",
+          "enrollment": "required",
+          "match": { "keywords": ["AIRLINE FEE", "AIRLINE INCIDENTAL", "AIRLINE CREDIT"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "200.00",
+              "period": "annual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": 56,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $200 per calendar year in incidental fees from one selected qualifying airline; the selection counts as enrollment."
+            }
+          ]
+        },
+        {
+          "id": "clear-plus",
+          "name": "CLEAR+ Credit",
+          "family": "travel-program",
+          "delivery": "statement_credit",
+          "enrollment": "none",
+          "match": { "keywords": ["CLEAR"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "219.00",
+              "period": "annual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": 56,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $219 per calendar year for an annual CLEAR+ membership."
+            }
+          ]
+        },
+        {
+          "id": "oura",
+          "name": "Oura Ring Credit",
+          "delivery": "statement_credit",
+          "enrollment": "required",
+          "match": { "keywords": ["OURA"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "200.00",
+              "period": "annual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": null,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $200 each calendar year on Oura Ring purchases at ouraring.com; memberships and accessories excluded."
+            }
+          ]
+        },
+        {
+          "id": "equinox",
+          "name": "Equinox Credit",
+          "family": "fitness",
+          "delivery": "statement_credit",
+          "enrollment": "required",
+          "match": { "keywords": ["EQUINOX"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "to_verify",
+              "amount": null,
+              "period": "annual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": null,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "The terms page lists $300 per calendar year, but the product page no longer shows this credit. Confirm it is still offered before filling the amount."
+            }
+          ]
+        },
+        {
+          "id": "airbnb-experiences",
+          "name": "Airbnb Experiences Credit",
+          "delivery": "statement_credit",
+          "enrollment": "unknown",
+          "match": { "keywords": ["AIRBNB"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "to_verify",
+              "amount": null,
+              "period": "annual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": 56,
+              "source": "amex-platinum-terms",
+              "last_verified": "2026-10-27",
+              "notes": "The terms page lists up to $250 per calendar year, unlocked only after a prepaid Airbnb Luxe booking; not on the product page. Conditional unlocks are not modelled yet."
+            }
+          ]
+        },
+        {
+          "id": "uber-cash",
+          "name": "Uber Cash",
+          "family": "rideshare",
+          "delivery": "issuer_wallet",
+          "enrollment": "required",
+          "match": { "keywords": [] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "15.00",
+              "period": "monthly",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": null,
+              "source": "amex-platinum-page",
+              "last_verified": "2026-10-27",
+              "notes": "$15 Uber Cash each month plus a $20 bonus in December, loaded into the Uber account rather than posted to the card, so it is never visible in card transactions."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "us-chase-sapphire-reserve",
+      "issuer": "Chase",
+      "name": "Sapphire Reserve",
+      "country": "US",
+      "currency": "USD",
+      "aliases": ["SAPPHIRE RESERVE", "CHASE SAPPHIRE RESERVE"],
+      "sources": [
+        {
+          "id": "chase-csr-page",
+          "url": "https://creditcards.chase.com/rewards-credit-cards/sapphire/reserve",
+          "title": "Chase Sapphire Reserve product page, including its offer details overlay",
+          "accessed": "2026-10-27"
+        }
+      ],
+      "notes": "Complimentary subscriptions (Apple TV, Apple Music, DashPass) are memberships, not credits, and are omitted. effective_from of the 2025 refresh is not stated on the cited page and is left null (to verify).",
+      "credits": [
+        {
+          "id": "travel",
+          "name": "Annual Travel Credit",
+          "family": "travel",
+          "delivery": "statement_credit",
+          "enrollment": "none",
+          "match": { "keywords": ["TRAVEL CREDIT"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "300.00",
+              "period": "annual",
+              "reset_basis": "anniversary_statement",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": 28,
+              "source": "chase-csr-page",
+              "last_verified": "2026-10-27",
+              "notes": "The year runs from account opening to the first statement date after the account-open anniversary, then every 12 billing cycles. Credits are issued for the year in which the purchase posts; they post within 3 business days but may take up to 4 weeks."
+            }
+          ]
+        },
+        {
+          "id": "the-edit",
+          "name": "Credit for stays with The Edit",
+          "family": "hotel",
+          "delivery": "statement_credit",
+          "enrollment": "none",
+          "match": { "keywords": ["THE EDIT"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": "2025-12-31",
+              "status": "to_verify",
+              "amount": null,
+              "period": "semiannual",
+              "reset_basis": "calendar",
+              "period_boundaries": "inferred",
+              "max_posting_lag_days": 28,
+              "source": "chase-csr-page",
+              "last_verified": "2026-10-27",
+              "notes": "Terms before 2026 are no longer on the page. Period and amount are placeholders until an archived issuer source is cited."
+            },
+            {
+              "effective_from": "2026-01-01",
+              "effective_to": null,
+              "status": "verified",
+              "amount": "500.00",
+              "period": "annual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "per_transaction_cap": "250.00",
+              "max_posting_lag_days": 28,
+              "source": "chase-csr-page",
+              "last_verified": "2026-10-27",
+              "notes": "Starting 2026-01-01, up to $250 per qualifying prepaid stay of two nights or more, up to $500 each calendar year."
+            }
+          ]
+        },
+        {
+          "id": "dining",
+          "name": "Dining Credit",
+          "family": "dining",
+          "delivery": "statement_credit",
+          "enrollment": "none",
+          "match": { "keywords": ["DINING CREDIT", "EXCLUSIVE TABLES"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "150.00",
+              "period": "semiannual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": null,
+              "source": "chase-csr-page",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $150 from January 1 through June 30 and $150 from July 1 through December 31 at Sapphire Reserve Exclusive Tables restaurants on OpenTable."
+            }
+          ]
+        },
+        {
+          "id": "stubhub",
+          "name": "StubHub Credit",
+          "delivery": "statement_credit",
+          "enrollment": "activation",
+          "match": { "keywords": ["STUBHUB", "VIAGOGO"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": "2027-12-31",
+              "status": "verified",
+              "amount": "150.00",
+              "period": "semiannual",
+              "reset_basis": "calendar",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": null,
+              "source": "chase-csr-page",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $150 January through June and $150 July through December for StubHub and viagogo purchases, through 2027-12-31. One-time activation required."
+            }
+          ]
+        },
+        {
+          "id": "peloton",
+          "name": "Peloton Credit",
+          "delivery": "statement_credit",
+          "enrollment": "activation",
+          "match": { "keywords": ["PELOTON"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": "2027-12-31",
+              "status": "verified",
+              "amount": "10.00",
+              "period": "monthly",
+              "reset_basis": "calendar",
+              "period_boundaries": "inferred",
+              "max_posting_lag_days": null,
+              "source": "chase-csr-page",
+              "last_verified": "2026-10-27",
+              "notes": "$10 in statement credits per month on eligible Peloton memberships through 2027-12-31, up to $120 annually. Activation required."
+            }
+          ]
+        },
+        {
+          "id": "trusted-traveler",
+          "name": "Global Entry, TSA PreCheck or NEXUS fee credit",
+          "family": "travel-program",
+          "delivery": "statement_credit",
+          "enrollment": "none",
+          "match": { "keywords": ["GLOBAL ENTRY", "TSA PRECHECK", "NEXUS"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "verified",
+              "amount": "120.00",
+              "period": "multi_year",
+              "period_years": 4,
+              "reset_basis": "since_last_credit",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": null,
+              "source": "chase-csr-page",
+              "last_verified": "2026-10-27",
+              "notes": "One statement credit of up to $120 every four years for the application fee."
+            }
+          ]
+        },
+        {
+          "id": "lyft",
+          "name": "Lyft ride credits",
+          "family": "rideshare",
+          "delivery": "in_app",
+          "enrollment": "unknown",
+          "match": { "keywords": [] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": "2027-09-30",
+              "status": "verified",
+              "amount": "10.00",
+              "period": "monthly",
+              "reset_basis": "calendar",
+              "period_boundaries": "inferred",
+              "max_posting_lag_days": null,
+              "source": "chase-csr-page",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $10 in monthly in-app Lyft credits through 2027-09-30; never posted to the card."
+            }
+          ]
+        },
+        {
+          "id": "doordash",
+          "name": "DoorDash promos",
+          "family": "dining",
+          "delivery": "in_app",
+          "enrollment": "activation",
+          "match": { "keywords": [] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": "2029-12-31",
+              "status": "verified",
+              "amount": "35.00",
+              "period": "monthly",
+              "reset_basis": "calendar",
+              "period_boundaries": "inferred",
+              "max_posting_lag_days": null,
+              "source": "chase-csr-page",
+              "last_verified": "2026-10-27",
+              "notes": "Up to $35 each month in DashPass promos ($15 plus two $10) through 2029-12-31; applied in the DoorDash app, never posted to the card."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "us-capital-one-venture-x",
+      "issuer": "Capital One",
+      "name": "Venture X",
+      "country": "US",
+      "currency": "USD",
+      "aliases": ["VENTURE X"],
+      "sources": [
+        {
+          "id": "capone-venture-x-page",
+          "url": "https://www.capitalone.com/credit-cards/venture-x/",
+          "title": "Venture X product page",
+          "accessed": "2026-10-27"
+        }
+      ],
+      "notes": "The rendered page on 2026-10-27 did not show the travel credit or the trusted-traveler amount (the values are filled by page templates). Every amount stays to_verify until a rendered issuer page or benefits guide is cited.",
+      "credits": [
+        {
+          "id": "travel",
+          "name": "Capital One Travel credit",
+          "family": "travel",
+          "delivery": "statement_credit",
+          "enrollment": "none",
+          "match": { "keywords": ["CAPITAL ONE TRAVEL"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "to_verify",
+              "amount": null,
+              "period": "annual",
+              "reset_basis": "anniversary",
+              "period_boundaries": "inferred",
+              "max_posting_lag_days": null,
+              "source": "capone-venture-x-page",
+              "last_verified": "2026-10-27",
+              "notes": "Amount and reset basis to verify."
+            }
+          ]
+        },
+        {
+          "id": "trusted-traveler",
+          "name": "Global Entry or TSA PreCheck credit",
+          "family": "travel-program",
+          "delivery": "statement_credit",
+          "enrollment": "none",
+          "match": { "keywords": ["GLOBAL ENTRY", "TSA PRECHECK"] },
+          "versions": [
+            {
+              "effective_from": null,
+              "effective_to": null,
+              "status": "to_verify",
+              "amount": null,
+              "period": "multi_year",
+              "period_years": 4,
+              "reset_basis": "since_last_credit",
+              "period_boundaries": "stated",
+              "max_posting_lag_days": null,
+              "source": "capone-venture-x-page",
+              "last_verified": "2026-10-27",
+              "notes": "The page states one statement credit per account every four years, posting within two billing cycles; the amount is templated and not visible."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
