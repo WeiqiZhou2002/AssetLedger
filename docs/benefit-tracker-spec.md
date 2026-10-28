@@ -82,26 +82,28 @@ Non-goals:
 
 ## 3. Shared catalog
 
-### 3.1 Hosting and licensing — recommendation
+### 3.1 Hosting and licensing
 
-Host the catalog in its own public repository, working name `card-benefits-catalog`, that both projects
-vendor at a pinned release:
+The catalog is hosted in [CardFacts](https://github.com/WeiqiZhou2002/cardfacts), a public repository that
+both projects vendor at a pinned release. CardFacts also covers annual fees and earn rates for personal and
+business cards; this spec uses only its credits.
 
 - Data under CC0-1.0. Benefit amounts and dates are facts; CC0 lets either AGPL project, and anyone else,
   ship the file without attribution plumbing in the UI. Tooling (schema, validator) under MIT.
-- Layout: `schema/catalog.schema.json` (JSON Schema 2020-12), `products/<country>/<product-id>.json`,
-  a build step that writes `dist/catalog.json` plus a SHA-256, `vectors/progress.json`, `CHANGELOG.md`,
-  and `CONTRIBUTING.md` with the citation rules in §3.4.
-- Release: date-based `catalog_version` (for example `2026.10.27`). Consumers copy `dist/catalog.json`
+- Layout (per the CardFacts proposal): `schema/card.schema.json` (JSON Schema 2020-12),
+  `data/us/<issuer>/<product-id>.json`, a build step that writes `dist/cards.json` plus a SHA-256,
+  `vectors/credit-progress.json`, and `CONTRIBUTING.md` with the citation rules in §3.4.
+- Release: date-based `catalog_version` (for example `2026.10.27`). Consumers copy `dist/cards.json`
   and record version and hash; updating is an ordinary pull request in each project, never a runtime
   download.
-- CI in the catalog repo: schema validation, the invariants listed in §3.3, link check, and a reminder
+- CI in CardFacts: schema validation, the invariants listed in §3.3, link check, and a reminder
   for versions whose `last_verified` is older than 180 days.
 
 JSON rather than YAML: both languages parse it with the standard library, JSON Schema validates it, and
 decimal strings survive unchanged.
 
-Until the repository exists, the draft files live in [benefit-tracker/](benefit-tracker/) on this branch.
+The canonical draft catalog, the rules in §4–§6 and the vectors now live in CardFacts; the copies in
+[benefit-tracker/](benefit-tracker/) are kept for reviewing this spec.
 
 ### 3.2 Shape
 
@@ -502,13 +504,13 @@ Year: cap 200.00, used 90.00, expired unused 10.00, available 0.00, upcoming 100
 The expectations were computed by a throwaway reference script written from this spec and spot-checked by
 hand (bt-001, 002, 003, 007, 008, 013, 014, 015, 021). The script is not committed; the vectors are the
 contract. Asset Ledger runs them in Vitest, Sure in Minitest, both reading the same vendored file. A
-behaviour change bumps `format_version` and lands in the catalog repo first.
+behaviour change bumps `format_version` and lands in CardFacts first.
 
 ## 7. Asset Ledger implementation outline
 
 ### 7.1 Catalog
 
-- Vendor `dist/catalog.json` as `apps/web/lib/benefits/catalog/catalog.json` with its version and SHA-256
+- Vendor CardFacts' `dist/cards.json` as `apps/web/lib/benefits/catalog/catalog.json` with its version and SHA-256
   in a sibling `catalog.lock.json`.
 - `lib/benefits/catalog/index.ts` parses it with a strict zod schema at module load (failing tests and
   build on invalid data) and exports typed products. Nothing is fetched at runtime.
@@ -671,8 +673,8 @@ If approved, AGENTS.md's benefit invariant gains one matching line in the implem
 
 1. **Approve the decision change (§9)?** It reverses the no-catalog stance for progress only; detection
    stays keyword-only.
-2. **Catalog repository:** name, owner (personal account or a neutral organisation) and licence (CC0-1.0
-   recommended over CC-BY-4.0 or ODbL to keep attribution out of both UIs).
+2. **Catalog repository:** created as [CardFacts](https://github.com/WeiqiZhou2002/cardfacts) on the personal
+   account, with CC0-1.0 data and MIT code as recommended. Open: whether to move it to an organisation later.
 3. **Late-posting rule (§5.5):** keep the overflow-triggered move plus manual pin, or use the posting date
    only and rely on pins? The move fixes the common "two credits in one month" case but never the "January
    credit for December" case (bt-004).
@@ -688,12 +690,12 @@ If approved, AGENTS.md's benefit invariant gains one matching line in the implem
 8. **Unknown `effective_from`:** both refreshed products lack a cited start date. Accept null plus tracking
    start, or hold those products back until an issuer source gives the date?
 9. **To-verify items:** Venture X amounts and reset basis; Amex Equinox and Airbnb Experiences; The Edit
-   before 2026. Do you want these researched further before the catalog repo is created?
+   before 2026. Do you want these researched further in CardFacts?
 10. **Non-statement benefits:** show Uber Cash, Lyft and DoorDash as an informational, untracked list, or
     leave them out of the UI entirely?
 11. **Product changes:** v1 allows one product per account. Is a product-change history (for upgrades
     mid-year) needed now?
 12. **Credit reversals:** issuer reversals are card debits, which are never benefits under current rules,
     so `used` can overstate after a reversal. Accept for v1?
-13. **Where the drafts live:** keep `docs/benefit-tracker/` in this repository until the catalog repo
-    exists, or move the catalog and vectors out before the pull request?
+13. **Where the drafts live:** canonical copies are now in CardFacts. Keep `docs/benefit-tracker/` here for
+    review, or drop it before the Asset Ledger pull request?

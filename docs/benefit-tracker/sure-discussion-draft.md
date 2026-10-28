@@ -1,8 +1,7 @@
 # Draft: Discussion post for we-promise/sure
 
-Not posted. Intended category: Feature Requests, whose template asks for the three sections below. Replace
-the catalog repository placeholder once it exists, and drop this file before any Asset Ledger pull request
-if the owner prefers not to publish it.
+Not posted. Intended category: Feature Requests, whose template asks for the three sections below. Drop
+this file before any Asset Ledger pull request if the owner prefers not to publish it.
 
 ---
 
@@ -50,7 +49,8 @@ Cash, in-app promos), enrollment tracking, and any effect on net worth or budget
 
 **Shared data instead of shared code.** I maintain [Asset Ledger](https://github.com/WeiqiZhou2002/AssetLedger),
 a self-hosted personal finance app (also AGPL), and plan to build the same feature there. Rather than
-couple the projects, the plan is a separate repository (`<catalog repo, to be created>`) holding:
+couple the projects, the plan is a shared open dataset, [CardFacts](https://github.com/WeiqiZhou2002/cardfacts), which also
+covers annual fees and earn rates for personal and business cards. For this feature it holds:
 
 - a JSON catalog of card products and their credits: amount, period (monthly, quarterly, semiannual,
   annual, multi-year), reset basis (calendar, anniversary, statement anniversary), effective dates for
