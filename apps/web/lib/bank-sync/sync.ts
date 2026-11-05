@@ -26,6 +26,8 @@ import { effectiveFromDate } from "./date-range";
 import { syncCounts } from "./run-counts";
 import { autoPostOwnerRows } from "./auto-post";
 import { CORE_SWEEP_NOTE, isCoreSweep } from "./core-sweeps";
+import { registerWebhook } from "./webhook-registration";
+import { pollNewAccountEvents } from "./webhook-events";
 type SyncBatch = Omit<SyncPage, "hasMore">;
 export async function collectSync(
   client: BankClient,
@@ -391,6 +393,7 @@ export async function syncConnection(
   );
   invariant(!job || job.syncGeneration === connection.syncGeneration, "同步任务代次已过期", 409);
   const accessToken = token(connection, config);
+  await registerWebhook(db, connection, client, config, accessToken);
   const run = await db.transaction(async (tx) => {
     await importLock(tx, ownerId);
     const current = await requireConnection(tx, ownerId, id);
@@ -464,7 +467,7 @@ export async function syncConnection(
     if (batch && !batch.accounts.length) batch.accounts = cached.accounts;
     const holdings = connection.products.includes("investments") ? await client.holdings(accessToken) : null;
     const consent = cached.item.consentExpiresAt ? new Date(cached.item.consentExpiresAt) : null;
-    return await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       await importLock(tx, ownerId);
       if (job) {
         const [lease] = await tx
@@ -559,6 +562,8 @@ export async function syncConnection(
       await auditLedger(tx, ownerId, "bank_connection", id, "bank.sync", counts);
       return { notReady: false, awaitingHistory, ...result };
     });
+    await pollNewAccountEvents(db, ownerId, id, client, config, now);
+    return result;
   } catch (error) {
     await finish("failed");
     if (!(error instanceof LedgerError && error.status === 409))

@@ -15,7 +15,9 @@ export function MappingForm({ connection, accounts }: { connection: Connection; 
   const [from, setFrom] = useState(connection.importFromDate);
   return (
     <form
-      className="space-y-4 border-t pt-4"
+      id={`mapping-${connection.id}`}
+      tabIndex={-1}
+      className="scroll-mt-6 space-y-4 border-t pt-4"
       onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
@@ -93,6 +95,7 @@ function MappingRow({
       <p className="text-sm break-words">
         {bank.name} · {bank.mask ? `尾号 ${bank.mask}` : "无尾号"} · {bank.currency ?? "不支持的币种"}
       </p>
+      {bank.unsharedAt ? <p className="text-xs text-muted-foreground">已停止共享</p> : null}
       {bank.importFromDate ? (
         <p className="text-xs text-muted-foreground">此账户生效起始日：{bank.importFromDate}</p>
       ) : null}

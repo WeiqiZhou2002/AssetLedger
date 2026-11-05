@@ -1,5 +1,5 @@
 import { loadPlaidConfig } from "./config";
-import { and, desc, eq, inArray, sql, ne } from "drizzle-orm";
+import { and, desc, eq, inArray, sql, ne, notInArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import type { AppDb } from "@/db/types";
 import {
@@ -22,6 +22,7 @@ import { mappedOpeningSuggestions } from "./opening-balances";
 import { importedAccountSchema, plaidLedgerType } from "@/lib/imports/account-defaults";
 import { createImportedAccount } from "@/lib/imports/account-creation";
 import { plaidError } from "./plaid-client";
+import { plaidWebhookUrl, usesHttpsWebhook } from "./webhook-url";
 import type { BankAccount, BankClient, LinkRequest, PlaidConfig } from "./types";
 export type Connection = typeof bankConnections.$inferSelect;
 function publicConnection(row: Connection) {
@@ -114,6 +115,7 @@ export async function createLinkToken(
   product: "transactions" | "investments",
   connectionId?: string,
   now = new Date(),
+  options: { accountSelection?: boolean } = {},
 ) {
   invariant(config.PLAID_ENABLED === "true", "银行连接未启用", 404);
   const request: LinkRequest = {
@@ -127,6 +129,7 @@ export async function createLinkToken(
     const connection = await requireConnection(db, ownerId, connectionId);
     invariant(connection.status !== "revoked", "已删除的连接不能重新授权");
     request.access_token = token(connection, config);
+    if (options.accountSelection) request.update = { account_selection_enabled: true };
   } else {
     const created = (await listConnections(db, ownerId)).filter(
       (row) => row.environment === "production",
@@ -135,6 +138,7 @@ export async function createLinkToken(
     const today = await ownerSyncDate(db, ownerId, now);
     invariant(historyStart(config, today) <= today, "历史起点不能晚于本地今天");
     request.products = [product];
+    if (usesHttpsWebhook(config.APP_URL)) request.webhook = plaidWebhookUrl(config.APP_URL);
     if (product === "transactions")
       request.transactions = {
         days_requested: historyDaysRequested(config, today),
@@ -161,10 +165,11 @@ export async function storeAccounts(
       lastBalanceAvailable: row.available,
       lastBalanceLimit: row.limit,
       lastBalanceAt: now,
+      unsharedAt: null,
     };
     await db
       .insert(bankConnectionAccounts)
-      .values({ ownerId, connectionId, plaidAccountId: row.id, ...values })
+      .values({ ownerId, connectionId, plaidAccountId: row.id, createdAt: now, ...values })
       .onConflictDoUpdate({
         target: [bankConnectionAccounts.connectionId, bankConnectionAccounts.plaidAccountId],
         set: values,
@@ -260,6 +265,7 @@ export async function exchangeConnection(
         institutionId: data.institution.institution_id,
         institutionName: data.institution.name,
         accessTokenEnc: encryptSecret(exchanged.accessToken, config.APP_SECRET, "plaid-access-token"),
+        webhookUrl: usesHttpsWebhook(config.APP_URL) ? plaidWebhookUrl(config.APP_URL) : null,
         importFromDate,
         daysRequested: historyDaysRequested(config, today),
         createdAt: now,
@@ -296,6 +302,7 @@ export async function refreshConnection(
   client: BankClient,
   config: PlaidConfig,
   now = new Date(),
+  options: { accountSelection?: boolean } = {},
 ) {
   const connection = await requireConnection(db, ownerId, id);
   invariant(connection.status !== "revoked", "连接已删除");
@@ -314,6 +321,24 @@ export async function refreshConnection(
     invariant(current.status !== "revoked", "连接已删除");
     await storeAccounts(tx, ownerId, id, result.accounts, now);
     await tx
+      .update(bankConnectionAccounts)
+      .set({ unsharedAt: now })
+      .where(
+        and(
+          eq(bankConnectionAccounts.ownerId, ownerId),
+          eq(bankConnectionAccounts.connectionId, id),
+          isNull(bankConnectionAccounts.unsharedAt),
+          ...(result.accounts.length
+            ? [
+                notInArray(
+                  bankConnectionAccounts.plaidAccountId,
+                  result.accounts.map((row) => row.id),
+                ),
+              ]
+            : []),
+        ),
+      );
+    await tx
       .update(bankConnections)
       .set({
         institutionId: result.item.institutionId,
@@ -322,10 +347,32 @@ export async function refreshConnection(
         consentExpiresAt: consent,
         status: consent && consent.getTime() <= now.getTime() + 7 * 86400000 ? "consent_expiring" : "active",
         errorCode: null,
+        ...(options.accountSelection ? { newAccountsAvailableAt: null, newAccountsHandledAt: now } : {}),
       })
       .where(and(eq(bankConnections.ownerId, ownerId), eq(bankConnections.id, id)));
+    await auditLedger(
+      tx,
+      ownerId,
+      "bank_connection",
+      id,
+      options.accountSelection ? "bank.account_selection" : "bank.accounts_refreshed",
+    );
   });
   return publicConnection(await requireConnection(db, ownerId, id));
+}
+export async function dismissNewAccounts(db: AppDb, ownerId: string, id: string, now = new Date()) {
+  await db.transaction(async (tx) => {
+    await importLock(tx, ownerId);
+    const connection = await requireConnection(tx, ownerId, id);
+    invariant(connection.status !== "revoked", "连接已删除");
+    if (!connection.newAccountsAvailableAt) return;
+    await tx
+      .update(bankConnections)
+      .set({ newAccountsAvailableAt: null, newAccountsHandledAt: now })
+      .where(and(eq(bankConnections.ownerId, ownerId), eq(bankConnections.id, id)));
+    await auditLedger(tx, ownerId, "bank_connection", id, "bank.new_accounts_dismissed");
+  });
+  return { ok: true };
 }
 export async function queueSync(
   db: AppDb,

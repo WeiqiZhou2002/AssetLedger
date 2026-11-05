@@ -17,13 +17,20 @@ import { PendingView, TransferSuggestions } from "@/components/bank-sync/pending
 import { transferSuggestions } from "@/lib/bank-sync/transfer-suggestions";
 import { listResetExports } from "@/lib/bank-sync/reset-files";
 import { ConnectionTransfer } from "@/components/bank-sync/connection-transfer";
+import { usesHttpsWebhook } from "@/lib/bank-sync/webhook-url";
+import { RecentAutoPosts } from "@/components/bank-sync/recent-auto-posts";
 export const metadata = { title: "导入与同步" };
-export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; connection?: string; select?: string }>;
+}) {
   const user = await requireUser();
   const db = getDb();
   const { config: env } = await loadPlaidConfig(db, user.id);
   const enabled = env.PLAID_ENABLED === "true";
-  const sync = enabled && (await searchParams).tab !== "inbox";
+  const params = await searchParams;
+  const sync = enabled && params.tab !== "inbox";
   const [statements, accounts, connections, workbench, categories, recoveries, suggestions] =
     await Promise.all([
       sync ? Promise.resolve([]) : listStatements(db, user.id),
@@ -70,7 +77,16 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
       {sync ? (
         <div className="space-y-6">
           {workbench ? (
-            <PendingView data={jsonSafe(workbench)} accounts={accounts} categories={categories} />
+            <PendingView
+              data={jsonSafe({
+                count: workbench.count,
+                transfers: workbench.transfers,
+                rows: workbench.rows,
+                suggestions: workbench.suggestions,
+              })}
+              accounts={accounts}
+              categories={categories}
+            />
           ) : null}
           <ConnectionsView
             connections={jsonSafe(connections)}
@@ -78,7 +94,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
             environment={env.PLAID_ENV}
             interval={env.PLAID_SYNC_INTERVAL_HOURS}
             timezone={user.timezone}
+            targetConnectionId={params.connection}
+            selectAccounts={params.select === "accounts"}
           />
+          <RecentAutoPosts entries={jsonSafe(workbench?.recent ?? [])} />
           {recoveries.length ? (
             <section className="rounded-xl border bg-card p-5 text-sm leading-7">
               <h2 className="font-medium">重置恢复导出</h2>
@@ -99,6 +118,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ t
             </section>
           ) : null}
           <ConnectionTransfer totpEnabled={Boolean(user.totpEnabledAt)} />
+          {!usesHttpsWebhook(env.APP_URL) ? (
+            <p className="text-xs leading-6 text-muted-foreground">
+              新账户会在每次同步时检查（最长约 {env.PLAID_SYNC_INTERVAL_HOURS}{" "}
+              小时）；也可随时点「添加或移除账户」。
+            </p>
+          ) : null}
         </div>
       ) : (
         <div className="space-y-6">

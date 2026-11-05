@@ -11,6 +11,7 @@ export type LinkSession = {
   connectionId?: string;
   expiration: string;
   allowDuplicate?: boolean;
+  accountSelection?: boolean;
 };
 export function LinkLaunch({
   session,
@@ -35,7 +36,11 @@ export function LinkLaunch({
         try {
           let connectionId = session.connectionId;
           if (session.connectionId)
-            await api(`/api/plaid/connections/${session.connectionId}/reauth`, "POST");
+            await api(
+              `/api/plaid/connections/${session.connectionId}/reauth`,
+              "POST",
+              session.accountSelection ? { accountSelection: true } : undefined,
+            );
           else {
             const result = await api<{ connection: { id: string } }>("/api/plaid/exchange", "POST", {
               public_token: publicToken,

@@ -735,12 +735,19 @@ it("keeps sync in navigation/accounts/hub and removes it from the money-only das
     />,
   );
   expect(view).not.toContain("待匹配转账");
-  expect(view).toContain("最近自动入账");
+  expect(view).not.toContain("最近自动入账");
   expect(renderToStaticMarkup(await dashboard.default({ searchParams: Promise.resolve({}) }))).not.toContain(
     "立即同步",
   );
   const html = renderToStaticMarkup(await hub.default({ searchParams: Promise.resolve({ tab: "sync" }) }));
   expect(html).toContain("自动入账");
+  expect(html).toContain(`最近自动入账 · ${data.recent.length} 笔`);
+  expect(html.indexOf(`id="connection-${bank.id}"`)).toBeLessThan(
+    html.indexOf('aria-controls="recent-auto-posts"'),
+  );
+  expect(html.indexOf('aria-controls="recent-auto-posts"')).toBeLessThan(html.indexOf("迁移银行连接"));
+  expect(html).toContain('aria-expanded="false" aria-controls="recent-auto-posts"');
+  expect(html).toContain('id="recent-auto-posts" hidden=""');
   expect(html.indexOf("连接银行（Plaid）")).toBeLessThan(html.indexOf("上传 PDF / CSV"));
   vi.stubEnv("PLAID_ENABLED", "false");
   expect(renderToStaticMarkup(<AppNavigation />)).not.toContain("银行同步");

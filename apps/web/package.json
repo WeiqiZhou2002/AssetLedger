@@ -1,6 +1,6 @@
 {
   "name": "@asset-ledger/web",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "license": "AGPL-3.0-only",
   "engines": {
@@ -21,7 +21,8 @@
     "format": "prettier --write \"**/*.{ts,tsx,mts,mjs,css,json}\" ../../package.json ../../.prettierrc \"../../fixtures/**/*.{ts,tsx}\" ../../scripts/plaid-sandbox-smoke.ts",
     "format:check": "prettier --check \"**/*.{ts,tsx,mts,mjs,css,json}\" ../../package.json ../../.prettierrc \"../../fixtures/**/*.{ts,tsx}\" ../../scripts/plaid-sandbox-smoke.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "plaid:sandbox-smoke": "tsx --tsconfig tsconfig.json ../../scripts/plaid-sandbox-smoke.ts"
+    "plaid:sandbox-smoke": "tsx --tsconfig tsconfig.json ../../scripts/plaid-sandbox-smoke.ts",
+    "plaid:sandbox-webhook": "tsx scripts/plaid-sandbox-webhook.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.1.0",

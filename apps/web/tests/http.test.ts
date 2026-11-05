@@ -50,7 +50,7 @@ it("health exposes only health enums and version", async () => {
     status: "ok",
     db: "ok",
     parser: "disabled",
-    version: "0.1.1",
+    version: "0.2.0",
   });
   const request = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ status: "ok" }));
   expect(
@@ -61,7 +61,7 @@ it("health exposes only health enums and version", async () => {
       "http://parser:8000",
       request,
     ),
-  ).toEqual({ status: "error", db: "error", parser: "ok", version: "0.1.1" });
+  ).toEqual({ status: "error", db: "error", parser: "ok", version: "0.2.0" });
   request.mockRejectedValue(new Error("offline"));
   expect(await healthStatus(async () => {}, "http://parser:8000", request)).toMatchObject({
     status: "degraded",

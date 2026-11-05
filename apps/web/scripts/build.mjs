@@ -11,6 +11,7 @@ await build({
     worker: "worker/index.ts",
     seed: "scripts/seed.ts",
     "plaid-backfill": "scripts/plaid-backfill.ts",
+    "plaid-sandbox-webhook": "scripts/plaid-sandbox-webhook.ts",
     "plaid-reset": "scripts/plaid-reset.ts",
   },
   outdir: "dist",
