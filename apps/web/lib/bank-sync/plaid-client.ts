@@ -4,6 +4,8 @@ import {
   PlaidEnvironments,
   Products,
   CountryCode,
+  WebhookType,
+  SandboxItemFireWebhookRequestWebhookCodeEnum,
   type AccountBase,
   type Transaction,
   type Item,
@@ -12,7 +14,15 @@ import {
 import Decimal from "decimal.js";
 import { maskDigits } from "@/lib/imports/text";
 import { invariant } from "@/lib/ledger/errors";
-import type { BankClient, BankAccount, BankTransaction, BankItem, LinkRequest, PlaidConfig } from "./types";
+import type {
+  BankClient,
+  BankAccount,
+  BankTransaction,
+  BankItem,
+  LinkRequest,
+  PlaidConfig,
+  WebhookEventsRequest,
+} from "./types";
 // The SDK exposes JSON numeric fields as JS numbers. Convert once at this boundary;
 // all subsequent arithmetic and persisted amounts use decimal strings.
 function decimal(value: number | null) {
@@ -81,7 +91,9 @@ function plaidApi(config: PlaidConfig, signal?: AbortSignal) {
 }
 export class PlaidClient implements BankClient {
   private api: PlaidApi;
+  private readonly environment: PlaidConfig["PLAID_ENV"];
   constructor(config: PlaidConfig, signal?: AbortSignal) {
+    this.environment = config.PLAID_ENV;
     this.api = plaidApi(config, signal);
   }
   async linkToken(request: LinkRequest) {
@@ -151,6 +163,41 @@ export class PlaidClient implements BankClient {
   }
   async remove(accessToken: string) {
     await this.api.itemRemove({ access_token: accessToken });
+  }
+  async updateWebhook(accessToken: string, webhook: string | null) {
+    await this.api.itemWebhookUpdate({ access_token: accessToken, webhook });
+  }
+  async webhookKey(kid: string) {
+    const { data } = await this.api.webhookVerificationKeyGet({ key_id: kid });
+    return data.key;
+  }
+  async webhookEvents(request: WebhookEventsRequest) {
+    const { data } = await this.api.betaWebhookEventsList(request);
+    return {
+      events: data.webhook_events.map((event) => ({
+        itemId: event.item_id,
+        type: event.webhook_type,
+        code: event.webhook_code,
+        sentAt: event.sent_time,
+      })),
+      hasMore: data.has_more,
+      nextCursor: data.next_cursor,
+    };
+  }
+  async sandboxFireWebhook(accessToken: string, code: "NEW_ACCOUNTS_AVAILABLE") {
+    invariant(this.environment === "sandbox", "仅允许 Sandbox；未发出任何请求");
+    invariant(code === "NEW_ACCOUNTS_AVAILABLE", "不支持的 Sandbox 通知代码");
+    const { data } = await this.api.sandboxItemFireWebhook({
+      access_token: accessToken,
+      webhook_type: WebhookType.Item,
+      webhook_code: SandboxItemFireWebhookRequestWebhookCodeEnum.NewAccountsAvailable,
+    });
+    if (data.webhook_fired !== true)
+      throw {
+        response: {
+          data: { error_code: "SANDBOX_WEBHOOK_NOT_FIRED", request_id: data.request_id },
+        },
+      };
   }
 }
 export async function testPlaidCredentials(config: PlaidConfig) {

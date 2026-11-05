@@ -1,5 +1,6 @@
 export type PlaidConfig = {
   APP_SECRET: string;
+  APP_URL: string;
   PLAID_ENABLED: "true" | "false";
   PLAID_ENV: "sandbox" | "production";
   PLAID_CLIENT_ID: string;
@@ -65,6 +66,35 @@ export type LinkRequest = {
   transactions?: { days_requested: number };
   access_token?: string;
   redirect_uri?: string;
+  webhook?: string;
+  update?: { account_selection_enabled: boolean };
+};
+export type WebhookKey = {
+  kid: string;
+  kty: string;
+  crv: string;
+  x: string;
+  y: string;
+  alg: string;
+  expired_at: number | null;
+};
+export type WebhookEventsRequest = {
+  start_time: string;
+  cursor?: string;
+  count: number;
+  webhook_codes: string[];
+  item_ids: string[];
+};
+export type WebhookEvent = {
+  itemId: string | null;
+  type: string;
+  code: string;
+  sentAt: string;
+};
+export type WebhookEventsPage = {
+  events: WebhookEvent[];
+  hasMore: boolean;
+  nextCursor: string;
 };
 export interface BankClient {
   linkToken(request: LinkRequest): Promise<{ link_token: string; expiration: string }>;
@@ -74,4 +104,8 @@ export interface BankClient {
   holdings(accessToken: string): Promise<Holdings>;
   refresh(accessToken: string): Promise<void>;
   remove(accessToken: string): Promise<void>;
+  updateWebhook(accessToken: string, webhook: string | null): Promise<void>;
+  webhookKey(kid: string): Promise<WebhookKey>;
+  webhookEvents(request: WebhookEventsRequest): Promise<WebhookEventsPage>;
+  sandboxFireWebhook(accessToken: string, code: "NEW_ACCOUNTS_AVAILABLE"): Promise<void>;
 }

@@ -108,9 +108,17 @@ const connection: ComponentProps<typeof ConnectionDisclosure>["connection"] = {
   status: "active",
   errorCode: null,
   mappingConfirmedAt: "2026-10-20T12:00:00Z",
+  newAccountsAvailableAt: null,
   lastSuccessAt: "2026-10-24T12:00:00Z",
   accounts: [
-    { accountId: "synthetic-account", securityAccountId: null, isEnabled: true, type: "depository" },
+    {
+      accountId: "synthetic-account",
+      securityAccountId: null,
+      isEnabled: true,
+      type: "depository",
+      createdAt: "2026-10-19T12:00:00Z",
+      unsharedAt: null,
+    },
   ],
 };
 it("benefit tiles reuse account classes and open a sheet with annual names, last dates and entry links", () => {

@@ -5,12 +5,18 @@ import { loadPlaidConfig } from "@/lib/bank-sync/config";
 import { getDb } from "@/db/client";
 import { pendingCount } from "@/lib/bank-sync/pending";
 import { transferSuggestions } from "@/lib/bank-sync/transfer-suggestions";
+import { accountReminderSummaries } from "@/lib/bank-sync/account-reminder-summaries";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const { config: env } = await loadPlaidConfig(getDb(), user.id);
   const plaidEnabled = env.PLAID_ENABLED === "true";
   const pending = plaidEnabled
-    ? await pendingCount(getDb(), user.id, env.PLAID_ENV)
+    ? (
+        await Promise.all([
+          pendingCount(getDb(), user.id, env.PLAID_ENV),
+          accountReminderSummaries(getDb(), user.id, env.PLAID_ENV).then((summaries) => summaries.length),
+        ])
+      ).reduce((sum, count) => sum + count, 0)
     : (await transferSuggestions(getDb(), user.id)).length;
   return (
     <div className="min-h-dvh">

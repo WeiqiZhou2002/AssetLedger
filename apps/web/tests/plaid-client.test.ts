@@ -8,8 +8,12 @@ const sdk = vi.hoisted(() => ({
   investmentsHoldingsGet: vi.fn(),
   itemPublicTokenExchange: vi.fn(),
   itemRemove: vi.fn(),
+  itemWebhookUpdate: vi.fn(),
+  webhookVerificationKeyGet: vi.fn(),
+  betaWebhookEventsList: vi.fn(),
   transactionsRefresh: vi.fn(),
   sandboxPublicTokenCreate: vi.fn(),
+  sandboxItemFireWebhook: vi.fn(),
 }));
 vi.mock("plaid", async (importOriginal) => ({
   ...(await importOriginal<typeof import("plaid")>()),
@@ -50,6 +54,100 @@ const item = {
   error: null,
 };
 afterEach(() => vi.resetAllMocks());
+it("refuses sandbox webhooks on a production client before making any SDK request", async () => {
+  const client = new PlaidClient({ ...plaidConfig, PLAID_ENV: "production" });
+  await expect(client.sandboxFireWebhook("synthetic-token", "NEW_ACCOUNTS_AVAILABLE")).rejects.toThrow(
+    "仅允许 Sandbox；未发出任何请求",
+  );
+  expect(sdk.sandboxItemFireWebhook).not.toHaveBeenCalled();
+});
+it("fires only the requested Sandbox ITEM new-account webhook", async () => {
+  sdk.sandboxItemFireWebhook.mockResolvedValue({ data: { webhook_fired: true } });
+  await new PlaidClient(plaidConfig).sandboxFireWebhook("synthetic-token", "NEW_ACCOUNTS_AVAILABLE");
+  expect(sdk.sandboxItemFireWebhook).toHaveBeenCalledWith({
+    access_token: "synthetic-token",
+    webhook_type: "ITEM",
+    webhook_code: "NEW_ACCOUNTS_AVAILABLE",
+  });
+});
+it("lists webhook events for the requested Item and code without exposing payloads or delivery details", async () => {
+  sdk.betaWebhookEventsList.mockResolvedValue({
+    data: {
+      webhook_events: [
+        {
+          webhook_message_id: "synthetic-message",
+          webhook_type: "ITEM",
+          webhook_code: "NEW_ACCOUNTS_AVAILABLE",
+          item_id: "synthetic-item",
+          sent_time: "2026-11-01T12:00:00Z",
+          delivery_status: "FAILED",
+          payload: { private: "synthetic-payload" },
+          destination_url: "http://localhost:3000/api/plaid/webhook",
+        },
+      ],
+      has_more: true,
+      next_cursor: "synthetic-next-cursor",
+    },
+  });
+  const request = {
+    start_time: "2026-10-31T12:00:00Z",
+    cursor: "synthetic-cursor",
+    count: 100,
+    webhook_codes: ["NEW_ACCOUNTS_AVAILABLE"],
+    item_ids: ["synthetic-item"],
+  };
+  const result = await new PlaidClient(plaidConfig).webhookEvents(request);
+  expect(sdk.betaWebhookEventsList).toHaveBeenCalledWith(request);
+  expect(result).toEqual({
+    events: [
+      {
+        itemId: "synthetic-item",
+        type: "ITEM",
+        code: "NEW_ACCOUNTS_AVAILABLE",
+        sentAt: "2026-11-01T12:00:00Z",
+      },
+    ],
+    hasMore: true,
+    nextCursor: "synthetic-next-cursor",
+  });
+});
+it("forwards webhook registration, verification key lookup and account selection to the SDK", async () => {
+  const key = {
+    kid: "synthetic-key",
+    kty: "EC",
+    crv: "P-256",
+    x: "synthetic",
+    y: "synthetic",
+    alg: "ES256",
+    expired_at: null,
+  };
+  sdk.webhookVerificationKeyGet.mockResolvedValue({ data: { key } });
+  sdk.itemWebhookUpdate.mockResolvedValue({ data: {} });
+  sdk.linkTokenCreate.mockResolvedValue({ data: { link_token: "synthetic", expiration: "2030-01-01" } });
+  const client = new PlaidClient(plaidConfig);
+  await client.updateWebhook("synthetic-access", "https://example.test/api/plaid/webhook");
+  await client.updateWebhook("synthetic-access", null);
+  expect(sdk.itemWebhookUpdate).toHaveBeenNthCalledWith(1, {
+    access_token: "synthetic-access",
+    webhook: "https://example.test/api/plaid/webhook",
+  });
+  expect(sdk.itemWebhookUpdate).toHaveBeenNthCalledWith(2, {
+    access_token: "synthetic-access",
+    webhook: null,
+  });
+  expect(await client.webhookKey("synthetic-key")).toEqual(key);
+  expect(sdk.webhookVerificationKeyGet).toHaveBeenCalledWith({ key_id: "synthetic-key" });
+  await client.linkToken({
+    user: { client_user_id: "synthetic" },
+    client_name: "Asset Ledger",
+    language: "en",
+    country_codes: ["US"],
+    access_token: "synthetic-access",
+    update: { account_selection_enabled: true },
+  });
+  expect(sdk.linkTokenCreate.mock.calls[0][0]).toMatchObject({ update: { account_selection_enabled: true } });
+  expect(sdk.linkTokenCreate.mock.calls[0][0]).not.toHaveProperty("products");
+});
 it("uses the cached accounts endpoint, converts SDK numbers immediately and masks descriptions", async () => {
   sdk.accountsGet.mockResolvedValue({ data: { accounts: [account], item } });
   sdk.transactionsSync.mockResolvedValue({

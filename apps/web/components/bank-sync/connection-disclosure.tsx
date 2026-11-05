@@ -6,20 +6,26 @@ import { Button } from "@/components/ui/button";
 import type { JsonSafe } from "@/lib/serialization";
 import type { listConnections } from "@/lib/bank-sync/connections";
 import { formatSyncTime } from "@/lib/bank-sync/time-format";
+import { accountReminders, type ReminderAccount } from "@/lib/bank-sync/account-reminders";
 type FullConnection = JsonSafe<Awaited<ReturnType<typeof listConnections>>>[number];
 type Connection = Pick<
   FullConnection,
-  "id" | "status" | "errorCode" | "mappingConfirmedAt" | "institutionName" | "lastSuccessAt"
+  | "id"
+  | "status"
+  | "errorCode"
+  | "mappingConfirmedAt"
+  | "institutionName"
+  | "lastSuccessAt"
+  | "newAccountsAvailableAt"
 > & {
-  accounts: Pick<
-    FullConnection["accounts"][number],
-    "isEnabled" | "accountId" | "type" | "securityAccountId"
-  >[];
+  accounts: (ReminderAccount &
+    Pick<FullConnection["accounts"][number], "isEnabled" | "accountId" | "type" | "securityAccountId">)[];
 };
 export function connectionNeedsAttention(connection: Connection) {
   return (
     connection.status !== "revoked" &&
     Boolean(
+      accountReminders(connection).needsAttention ||
       connection.errorCode ||
       ["error", "login_required", "consent_expiring"].includes(connection.status) ||
       !connection.mappingConfirmedAt ||
@@ -36,15 +42,17 @@ export function ConnectionDisclosure({
   timezone,
   pending,
   onSync,
+  initiallyExpanded = false,
   children,
 }: {
   connection: Connection;
   timezone: string;
   pending: boolean;
   onSync: () => void;
+  initiallyExpanded?: boolean;
   children: ReactNode;
 }) {
-  const [expanded, setExpanded] = useState(() => connectionNeedsAttention(connection));
+  const [expanded, setExpanded] = useState(() => initiallyExpanded || connectionNeedsAttention(connection));
   const status =
     connection.status === "revoked"
       ? "已删除"

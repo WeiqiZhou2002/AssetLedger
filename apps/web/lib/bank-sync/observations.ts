@@ -47,6 +47,8 @@ export async function observeBalances(
   for (const account of mapped.filter((row) => row.isEnabled && row.accountId && row.currency)) {
     const sourceRef = `plaid:${connectionId}:${account.plaidAccountId}:${now.toISOString()}`;
     if (account.type === "investment" && holdings && account.securityAccountId) {
+      // Missing shared-account evidence is not an empty portfolio worth zero.
+      if (!holdings.accounts.some((row) => row.id === account.plaidAccountId)) continue;
       const held = holdings.holdings.filter((row) => row.accountId === account.plaidAccountId);
       if (held.some((row) => row.currency !== account.currency)) continue;
       for (const cash of [true, false])

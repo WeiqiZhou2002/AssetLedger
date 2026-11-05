@@ -202,7 +202,17 @@ it("upgrades all owners, deletes only retired data, detaches points, preserves P
         continue;
       }
       const after = (await h.client.query(`SELECT * FROM "${table}" ORDER BY id`)).rows;
-      if (!special.has(table)) expect(after, table).toEqual(before.get(table));
+      if (!special.has(table)) {
+        const addedColumns =
+          table === "bank_connections"
+            ? { new_accounts_available_at: null, new_accounts_handled_at: null, webhook_url: null }
+            : table === "bank_connection_accounts"
+              ? { unshared_at: null }
+              : {};
+        expect(after, table).toEqual(
+          (before.get(table) as Record<string, unknown>[]).map((row) => ({ ...row, ...addedColumns })),
+        );
+      }
     }
     for (const table of ["balance_snapshots", "snapshot_items", "snapshot_fx"]) {
       const kept = (before.get(table) as Record<string, unknown>[]).filter((row) =>

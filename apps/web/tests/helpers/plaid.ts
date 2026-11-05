@@ -7,9 +7,13 @@ import type {
   LinkRequest,
   PlaidConfig,
   SyncPage,
+  WebhookKey,
+  WebhookEventsRequest,
+  WebhookEventsPage,
 } from "@/lib/bank-sync/types";
 export const plaidConfig: PlaidConfig = {
   APP_SECRET: "synthetic-plaid-app-secret-at-least-32",
+  APP_URL: "http://localhost:3000",
   PLAID_ENABLED: "true",
   PLAID_ENV: "sandbox",
   PLAID_CLIENT_ID: "synthetic-client",
@@ -60,6 +64,16 @@ export class FakePlaid implements BankClient {
   cursors: (string | null)[] = [];
   removed: string[] = [];
   refreshed = 0;
+  webhooks: (string | null)[] = [];
+  webhookKeys = new Map<string, WebhookKey>();
+  keyRequests: string[] = [];
+  webhookEventRequests: WebhookEventsRequest[] = [];
+  firedWebhooks: { accessToken: string; code: "NEW_ACCOUNTS_AVAILABLE" }[] = [];
+  eventPage: (request: WebhookEventsRequest) => WebhookEventsPage | Promise<WebhookEventsPage> = () => ({
+    events: [],
+    hasMore: false,
+    nextCursor: "events-cursor",
+  });
   page: (cursor: string | null, call: number) => SyncPage | Promise<SyncPage> = () => ({
     accounts: this.accountRows,
     added: [],
@@ -92,6 +106,22 @@ export class FakePlaid implements BankClient {
   }
   async remove(token: string) {
     this.removed.push(token);
+  }
+  async updateWebhook(_token: string, webhook: string | null) {
+    this.webhooks.push(webhook);
+  }
+  async webhookKey(kid: string) {
+    this.keyRequests.push(kid);
+    const key = this.webhookKeys.get(kid);
+    if (!key) throw new Error("unknown_key");
+    return key;
+  }
+  async webhookEvents(request: WebhookEventsRequest) {
+    this.webhookEventRequests.push(request);
+    return this.eventPage(request);
+  }
+  async sandboxFireWebhook(accessToken: string, code: "NEW_ACCOUNTS_AVAILABLE") {
+    this.firedWebhooks.push({ accessToken, code });
   }
 }
 export const plaidFailure = (code: string) => ({

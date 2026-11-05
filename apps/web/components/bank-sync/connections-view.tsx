@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -16,6 +16,7 @@ import { MappingForm } from "./mapping-form";
 import type { LinkSession } from "./link";
 import { ResetForm } from "./reset-form";
 import { DuplicateChoices } from "./duplicate-choices";
+import { accountReminders } from "@/lib/bank-sync/account-reminders";
 const LinkLaunch = dynamic(() => import("./link").then((module) => module.LinkLaunch), { ssr: false });
 const storageKey = "asset-ledger:plaid-link:v1";
 type Connections = JsonSafe<Awaited<ReturnType<typeof listConnections>>>;
@@ -25,21 +26,50 @@ export function ConnectionsView({
   environment,
   interval,
   timezone,
+  targetConnectionId,
+  selectAccounts = false,
 }: {
   connections: Connections;
   accounts: Account[];
   environment: "sandbox" | "production";
   interval: number;
   timezone: string;
+  targetConnectionId?: string;
+  selectAccounts?: boolean;
 }) {
   const mutation = useLedgerMutation();
   const router = useRouter();
   const [session, setSession] = useState<LinkSession | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<string | null>(null);
+  const [selecting, setSelecting] = useState<string | null>(() =>
+    selectAccounts
+      ? (connections.find(
+          (row) =>
+            row.id === targetConnectionId && row.environment === environment && row.status === "active",
+        )?.id ?? null)
+      : null,
+  );
+  const consumedNavigation = useRef(false);
   const [newProduct, setNewProduct] = useState<"transactions" | "investments" | null>(null);
   const [linkProduct, setLinkProduct] = useState<"transactions" | "investments">("transactions");
   const current = connections.filter((row) => row.environment === environment);
+  useEffect(() => {
+    if (consumedNavigation.current) return;
+    consumedNavigation.current = true;
+    const url = new URL(window.location.href);
+    if (selectAccounts && url.searchParams.get("select") === "accounts") {
+      url.searchParams.delete("select");
+      router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+    }
+    if (!connections.some((row) => row.id === targetConnectionId && row.environment === environment)) return;
+    const connectionAnchor = `connection-${targetConnectionId}`;
+    const anchor =
+      url.hash === `#mapping-${targetConnectionId}` ? `mapping-${targetConnectionId}` : connectionAnchor;
+    const target = document.getElementById(anchor) ?? document.getElementById(connectionAnchor);
+    target?.scrollIntoView({ block: "start" });
+    if (!selectAccounts) target?.focus({ preventScroll: true });
+  }, [connections, environment, router, selectAccounts, targetConnectionId]);
   const resetNames = Object.fromEntries([
     ...current.map((row) => [row.id, row.institutionName]),
     ...accounts.map((row) => [row.id, row.name]),
@@ -58,23 +88,30 @@ export function ConnectionsView({
     const timer = setInterval(() => router.refresh(), 3000);
     return () => clearInterval(timer);
   }, [waitingForSync, router]);
-  const start = (product: "transactions" | "investments", id?: string, allowDuplicate = false) =>
+  const start = (
+    product: "transactions" | "investments",
+    id?: string,
+    allowDuplicate = false,
+    accountSelection = false,
+  ) =>
     mutation.run(async () => {
       const result = await api<{ link_token: string; expiration: string }>(
         id ? `/api/plaid/connections/${id}/link-token` : "/api/plaid/link-token",
         "POST",
-        id ? {} : { product },
+        id ? { accountSelection } : { product },
       );
       const value = {
         token: result.link_token,
         expiration: result.expiration,
         ...(id ? { connectionId: id } : {}),
         ...(allowDuplicate ? { allowDuplicate: true } : {}),
+        ...(accountSelection ? { accountSelection: true } : {}),
       };
       setLinkProduct(product);
       sessionStorage.setItem(storageKey, JSON.stringify(value));
       setNewProduct(null);
       setDuplicate(null);
+      setSelecting(null);
       setSession(value);
     });
   return (
@@ -121,128 +158,197 @@ export function ConnectionsView({
         />
       ) : null}
       {current.length ? (
-        current.map((connection) => (
-          <ConnectionDisclosure
-            key={connection.id}
-            connection={connection}
-            timezone={timezone}
-            pending={mutation.pending}
-            onSync={() =>
-              void mutation.run(async () => {
-                await api(`/api/plaid/connections/${connection.id}/sync`, "POST");
-              }, "已排队，请稍后查看收件箱")
-            }
-          >
-            <p className="text-xs leading-6 text-muted-foreground">
-              上次尝试：
-              {connection.lastSyncedAt ? formatSyncTime(connection.lastSyncedAt, timezone) : "尚未同步"}
-              <br />
-              上次成功：
-              {connection.lastSuccessAt ? formatSyncTime(connection.lastSuccessAt, timezone) : "尚未成功"}
-              {connection.errorCode
-                ? ` · ${connection.errorCode.startsWith("MISSING_FX_") ? "缺少 " + connection.errorCode.slice(11).replaceAll("_", "、") + " 汇率" : connection.errorCode}`
-                : ""}
-              {connection.consentExpiresAt ? ` · 授权到期 ${connection.consentExpiresAt.slice(0, 10)}` : ""}
-            </p>
-            <p className="text-xs leading-6 text-muted-foreground">
-              {connection.products.includes("transactions") ? (
+        current.map((connection) => {
+          const reminders = accountReminders(connection);
+          return (
+            <ConnectionDisclosure
+              key={connection.id}
+              connection={connection}
+              timezone={timezone}
+              pending={mutation.pending}
+              initiallyExpanded={connection.id === targetConnectionId}
+              onSync={() =>
+                void mutation.run(async () => {
+                  await api(`/api/plaid/connections/${connection.id}/sync`, "POST");
+                }, "已排队，请稍后查看收件箱")
+              }
+            >
+              <p className="text-xs leading-6 text-muted-foreground">
+                上次尝试：
+                {connection.lastSyncedAt ? formatSyncTime(connection.lastSyncedAt, timezone) : "尚未同步"}
+                <br />
+                上次成功：
+                {connection.lastSuccessAt ? formatSyncTime(connection.lastSuccessAt, timezone) : "尚未成功"}
+                {connection.errorCode
+                  ? ` · ${connection.errorCode.startsWith("MISSING_FX_") ? "缺少 " + connection.errorCode.slice(11).replaceAll("_", "、") + " 汇率" : connection.errorCode}`
+                  : ""}
+                {connection.consentExpiresAt ? ` · 授权到期 ${connection.consentExpiresAt.slice(0, 10)}` : ""}
+              </p>
+              <p className="text-xs leading-6 text-muted-foreground">
+                {connection.products.includes("transactions") ? (
+                  <>
+                    Plaid 可提供的历史起点 ≈ {connection.availabilityStart}（初始化请求{" "}
+                    {connection.daysRequested} 天）。 补导和重置不能扩大此范围；更早流水可上传
+                    PDF/CSV。重新连接会消耗 Trial 名额。
+                  </>
+                ) : (
+                  "此连接不提供交易流水，仅同步余额/持仓"
+                )}
+              </p>
+              {connection.latestRun ? (
+                <SyncRunSummary run={connection.latestRun} timezone={timezone} />
+              ) : null}
+              {connection.backfillPending && connection.latestRun?.status !== "failed" ? (
+                <p className="text-sm text-muted-foreground">
+                  等待银行历史同步及账单审核完成；期初未被编辑且无待审核行时重算。若仍有待审核行，请先审核，再点立即同步。
+                </p>
+              ) : null}
+              {["login_required", "consent_expiring"].includes(connection.status) ? (
+                <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                  银行需要更新授权，请点击“重新授权”。现有账本记录保持可用。
+                </p>
+              ) : null}
+              {connection.status !== "revoked" ? (
                 <>
-                  Plaid 可提供的历史起点 ≈ {connection.availabilityStart}（初始化请求{" "}
-                  {connection.daysRequested} 天）。 补导和重置不能扩大此范围；更早流水可上传
-                  PDF/CSV。重新连接会消耗 Trial 名额。
-                </>
-              ) : (
-                "此连接不提供交易流水，仅同步余额/持仓"
-              )}
-            </p>
-            {connection.latestRun ? <SyncRunSummary run={connection.latestRun} timezone={timezone} /> : null}
-            {connection.backfillPending && connection.latestRun?.status !== "failed" ? (
-              <p className="text-sm text-muted-foreground">
-                等待银行历史同步及账单审核完成；期初未被编辑且无待审核行时重算。若仍有待审核行，请先审核，再点立即同步。
-              </p>
-            ) : null}
-            {["login_required", "consent_expiring"].includes(connection.status) ? (
-              <p role="alert" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
-                银行需要更新授权，请点击“重新授权”。现有账本记录保持可用。
-              </p>
-            ) : null}
-            {connection.status !== "revoked" ? (
-              <>
-                <label className="flex items-start gap-3 rounded-lg bg-muted/50 p-3 text-sm leading-6">
-                  <input
-                    type="checkbox"
-                    checked={connection.autoPost}
-                    disabled={mutation.pending}
-                    className="mt-1 size-4 shrink-0"
-                    onChange={(event) => {
-                      const autoPost = event.target.checked;
-                      void mutation.run(
-                        async () => {
-                          await api(`/api/plaid/connections/${connection.id}/auto-post`, "POST", {
-                            autoPost,
-                          });
-                        },
-                        autoPost ? "已开启，下次同步处理未决交易" : "已切回逐行审核",
-                      );
-                    }}
-                  />
-                  <span>
-                    自动入账
-                    <span className="block text-xs text-muted-foreground">
-                      关闭后，新流水先进入审核收件箱；已入账流水不变。
+                  {reminders.newAccountsAvailable ? (
+                    <div className="space-y-2 rounded-lg bg-muted/50 p-3 text-sm">
+                      <p>{connection.institutionName} 有新账户可以添加</p>
+                      <div className="flex flex-wrap gap-2">
+                        <Button disabled={mutation.pending} onClick={() => setSelecting(connection.id)}>
+                          添加账户
+                        </Button>
+                        <Button
+                          variant="link"
+                          disabled={mutation.pending}
+                          onClick={() =>
+                            void mutation.run(async () => {
+                              await api(
+                                `/api/plaid/connections/${connection.id}/dismiss-new-accounts`,
+                                "POST",
+                              );
+                            })
+                          }
+                        >
+                          暂不添加
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                  {reminders.unmappedNewAccounts ? (
+                    <p className="text-sm">
+                      发现 {reminders.unmappedNewAccounts} 个新账户，确认映射后开始同步
+                      <Button
+                        variant="link"
+                        onClick={() => document.getElementById(`mapping-${connection.id}`)?.focus()}
+                      >
+                        确认账户映射
+                      </Button>
+                    </p>
+                  ) : null}
+                  {reminders.unsharedMapped ? (
+                    <p className="text-sm text-muted-foreground">
+                      {reminders.unsharedMapped} 个账户已停止共享，不再同步。如不再需要，可在账户映射中停用。
+                    </p>
+                  ) : null}
+                  <label className="flex items-start gap-3 rounded-lg bg-muted/50 p-3 text-sm leading-6">
+                    <input
+                      type="checkbox"
+                      checked={connection.autoPost}
+                      disabled={mutation.pending}
+                      className="mt-1 size-4 shrink-0"
+                      onChange={(event) => {
+                        const autoPost = event.target.checked;
+                        void mutation.run(
+                          async () => {
+                            await api(`/api/plaid/connections/${connection.id}/auto-post`, "POST", {
+                              autoPost,
+                            });
+                          },
+                          autoPost ? "已开启，下次同步处理未决交易" : "已切回逐行审核",
+                        );
+                      }}
+                    />
+                    <span>
+                      自动入账
+                      <span className="block text-xs text-muted-foreground">
+                        关闭后，新流水先进入审核收件箱；已入账流水不变。
+                      </span>
                     </span>
-                  </span>
-                </label>
-                <MappingForm
-                  key={`${connection.id}:${connection.updatedAt}`}
-                  connection={connection}
-                  accounts={accounts}
-                />
-                <div className="flex flex-wrap gap-2">
-                  {connection.status === "active" ? (
-                    <ResetForm connectionIds={[connection.id]} names={resetNames} />
-                  ) : null}
-                  {connection.status === "active" && connection.mappingConfirmedAt ? (
-                    <BackfillForm connectionId={connection.id} fromDate={connection.defaultBackfillFrom} />
-                  ) : null}
-                  {connection.products.includes("transactions") ? (
+                  </label>
+                  <MappingForm
+                    key={`${connection.id}:${connection.updatedAt}`}
+                    connection={connection}
+                    accounts={accounts}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    {connection.status === "active" ? (
+                      <ResetForm connectionIds={[connection.id]} names={resetNames} />
+                    ) : null}
+                    {connection.status === "active" && connection.mappingConfirmedAt ? (
+                      <BackfillForm connectionId={connection.id} fromDate={connection.defaultBackfillFrom} />
+                    ) : null}
+                    {connection.products.includes("transactions") ? (
+                      <Button
+                        variant="outline"
+                        disabled={mutation.pending || !connection.mappingConfirmedAt}
+                        onClick={() =>
+                          void mutation.run(async () => {
+                            await api(`/api/plaid/connections/${connection.id}/refresh`, "POST");
+                          }, "已请求银行刷新并排队同步")
+                        }
+                      >
+                        请求银行刷新
+                      </Button>
+                    ) : null}
                     <Button
                       variant="outline"
-                      disabled={mutation.pending || !connection.mappingConfirmedAt}
-                      onClick={() =>
-                        void mutation.run(async () => {
-                          await api(`/api/plaid/connections/${connection.id}/refresh`, "POST");
-                        }, "已请求银行刷新并排队同步")
-                      }
+                      disabled={mutation.pending}
+                      onClick={() => void start("transactions", connection.id)}
                     >
-                      请求银行刷新
+                      重新授权
                     </Button>
-                  ) : null}
-                  <Button
-                    variant="outline"
-                    disabled={mutation.pending}
-                    onClick={() => void start("transactions", connection.id)}
-                  >
-                    重新授权
-                  </Button>
-                  <Button variant="ghost" onClick={() => setRemoving(connection.id)}>
-                    删除
-                  </Button>
-                  <Button variant="link" asChild>
-                    <Link href="/statements?tab=inbox">查看审核收件箱 →</Link>
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">连接已撤销，原有流水和观察保留。</p>
-            )}
-          </ConnectionDisclosure>
-        ))
+                    {connection.status === "active" ? (
+                      <Button
+                        variant="outline"
+                        disabled={mutation.pending}
+                        onClick={() => setSelecting(connection.id)}
+                      >
+                        添加或移除账户
+                      </Button>
+                    ) : null}
+                    <Button variant="ghost" onClick={() => setRemoving(connection.id)}>
+                      删除
+                    </Button>
+                    <Button variant="link" asChild>
+                      <Link href="/statements?tab=inbox">查看审核收件箱 →</Link>
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">连接已撤销，原有流水和观察保留。</p>
+              )}
+            </ConnectionDisclosure>
+          );
+        })
       ) : (
         <p className="rounded-xl border border-dashed p-6 text-sm">
           还没有银行连接。连接后先确认账户映射与导入起始日。
         </p>
       )}
+      <FormSheet
+        open={Boolean(selecting)}
+        onOpenChange={(open) => !open && setSelecting(null)}
+        title="添加或移除账户"
+        description="在 Plaid 中勾选要共享的账户；取消勾选的账户将停止同步，已入账记录保留。"
+      >
+        <Button
+          disabled={mutation.pending}
+          onClick={() => selecting && void start("transactions", selecting, false, true)}
+        >
+          继续选择账户
+        </Button>
+        <FormError error={mutation.error} />
+      </FormSheet>
       <FormSheet
         open={Boolean(newProduct)}
         onOpenChange={(open) => !open && setNewProduct(null)}

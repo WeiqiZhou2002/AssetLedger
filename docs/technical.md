@@ -80,6 +80,33 @@ Plaid 可在「设置 → 银行连接」填写环境、Client ID、Secret 和�
 
 同一环境已连接的机构会在 Link 选择机构时提示「重新授权已有连接」。确有第二套银行登录时，可明确选择「仍然添加新连接（会占用一个新的 Plaid Item）」；该选择只对本次 Link 生效。服务端也在交换 public token 前检查重复机构。页面计数包含本地保留的已撤销和迁入连接，不能还原其他实例的创建历史，最终额度以 Plaid 为准。
 
+### 新账户通知与账户选择
+
+在「导入与同步 → 自动同步」的对应连接点「添加或移除账户」，可重新进入 Plaid Link 勾选共享账户，无需创建新的 Item。取消勾选会停止共享，已入账记录和映射保留；界面标注「已停止共享」。重新共享后恢复同步。新共享账户默认不启用，确认映射后才开始导入。
+
+每个 Item 都需要注册 `${APP_URL}/api/plaid/webhook`，否则 Plaid 不生成对应的 ITEM 通知记录。HTTPS 地址随新建 Link token 注册，已有或迁入连接在下次同步时注册或更新地址；HTTP 地址不放入 Link token，而是在同步时通过 `/item/webhook/update` 注册。注册失败不影响同步，也不会保存已注册地址，下次同步重试。HTTP webhook 注册和失败投递留存记录目前仅在 Sandbox 验证，Production 是否接受 HTTP 地址尚未验证，因此不会让该字段阻止新建 Link。
+
+每次成功同步后（包括「立即同步」），应用在同步事务之外查询 `/beta/webhook_events/list`，按 Item 和 `NEW_ACCOUNTS_AVAILABLE` 过滤并在本地复核 Item、ITEM 类型与代码，不要求投递成功。因此本机 HTTP、仅 Tailscale 网络内可达的 HTTPS 地址，也能从通知记录中发现新账户。默认每 12 小时检查一次，遵循配置的同步间隔；也可手动同步或直接选择账户。通知记录只保留 7 天，查询从「当前时间减 7 天再加 10 分钟」与上次处理时间中较晚者开始，最多读取 10 页。长时间停机可能错过窗口以外的通知；该接口仍是 beta，可能变更或不可用，查询失败只记录安全错误种类并等待下次同步，已发现的提醒保留。
+
+公网可达的 HTTPS 地址另外支持实时接收。仅 Tailscale 网络内可达的地址仍可用于浏览器 OAuth 回跳，但 Plaid 服务器无法实时投递到它。设置页按 HTTP/HTTPS 显示通知方式，HTTPS 同时显示 webhook 地址。接收端限制原始请求体为 64 KB，验证 `Plaid-Verification` 的 ES256 签名、5 分钟内的签发时间（允许最多 60 秒未来时钟偏差）和原始字节 SHA-256，并对验证失败的请求限流；密钥获取失败返回可重试的 503，不记录拒绝次数。
+
+只有 `ITEM / NEW_ACCOUNTS_AVAILABLE` 设置提醒，重复的待处理通知不会重复审计；其他事件不触发同步或改变连接状态。通知、新共享待映射账户、已停止共享的映射账户会在连接卡、导航及总览提示。「暂不添加」实际清除提醒时，或完成账户选择时，保存 `new_accounts_handled_at`；轮询只提示 `sent_time` 严格晚于处理时间的事件，并在锁内复核，避免并发关闭后旧通知重新出现。空提醒的重复关闭保持无操作，完成账户选择则总是更新处理时间。同步仍按原有调度执行。
+
+### 在 Sandbox 测试新账户提醒
+
+1. 在「设置 → 银行连接」切换到 Sandbox，配置并启用 Sandbox 凭据（如服务器配置优先，需先修改服务器配置）。
+2. 在应用中通过 Plaid Link 连接测试银行，使用 `user_good` / `pass_good` 并完成账户选择及映射，再点一次「立即同步」登记通知地址。必须使用通过 Link 创建的 Item；`plaid:sandbox-smoke` 或 `/sandbox/public_token/create` 创建的 Item 不支持此通知，会返回 `SANDBOX_ACCOUNT_SELECT_V2_NOT_ENABLED`。
+3. 先列出当前环境下该所有者的连接，再用连接 ID 触发通知：
+
+   ```bash
+   docker compose exec web node dist/plaid-sandbox-webhook.cjs --owner owner@example.com
+   docker compose exec web node dist/plaid-sandbox-webhook.cjs --owner owner@example.com --connection <连接ID> --fire
+   ```
+
+   本地开发可用 `pnpm -C apps/web plaid:sandbox-webhook --owner owner@example.com` 列表，加上 `--connection <连接ID> --fire` 触发。列表仅显示 ID、机构、状态、是否登记通知地址及是否有待处理的新账户通知，不输出令牌或密钥。触发只允许当前启用配置和连接均为 Sandbox、连接未撤销且已登记通知地址。
+
+4. 看到 `webhook_fired` 后，HTTP 安装点「立即同步」从 Plaid 通知记录获取提醒；公网可达的 HTTPS 安装会实时接收，稍等后刷新页面。无法公网访问的 HTTPS 安装同样可点「立即同步」。然后试用「添加或移除账户」重新选择共享账户。
+
 ### OAuth 银行与 HTTPS
 
 在电脑浏览器中连接银行时，Plaid 会弹出银行网站窗口完成 OAuth 授权，不需要回跳地址，因此本机 `http://localhost` 安装在 Production 环境下也能连接 OAuth 银行，「OAuth 回跳地址」留空即可（不要拦截 Plaid 的弹出窗口）。手机上的 Safari、主屏幕应用和 App 内浏览器通常不支持弹出窗口，需要 HTTPS 回跳地址；Production 不接受 `http://localhost`（仅 Sandbox 允许）。手机使用本机安装时，可用 [Tailscale Serve](https://tailscale.com/kb/1312/serve) 为这台电脑提供仅自己设备可访问的 HTTPS 地址，或按 [手动 Docker 部署与远程访问](#手动-docker-部署与远程访问) 配置 Cloudflare Tunnel；随后把 `APP_URL` 改为该 HTTPS 地址，在 Plaid Dashboard 登记 `https://你的地址/plaid/oauth` 并填入设置页。Plaid 只会让浏览器跳转到该地址，不会从服务器访问它，因此不必对公网开放。

@@ -3,8 +3,11 @@ import Link from "next/link";
 import type { wealthOverview } from "@/lib/dashboard/wealth";
 import type { monthSummary } from "@/lib/dashboard/month";
 import { MoneyAmount } from "@/components/money-amount";
+import { AccountChangeCard } from "./account-change-card";
+import type { AccountReminderSummary } from "@/lib/bank-sync/account-reminder-summaries";
 export type DashboardData = {
   dueBalanceCount?: number;
+  bankAccountReminders?: AccountReminderSummary[];
   backcast: BackcastData;
   wealth: Awaited<ReturnType<typeof wealthOverview>>;
   month: Awaited<ReturnType<typeof monthSummary>>;
@@ -69,7 +72,13 @@ export function CoverageNote({ wealth }: Pick<DashboardData, "wealth">) {
     </div>
   );
 }
-export function PersonalOverview({ wealth, month, backcast, dueBalanceCount = 0 }: DashboardData) {
+export function PersonalOverview({
+  wealth,
+  month,
+  backcast,
+  dueBalanceCount = 0,
+  bankAccountReminders = [],
+}: DashboardData) {
   const kpis = [
     ["assets", "资产", wealth.assets],
     ["liabilities", "负债", wealth.liabilities],
@@ -84,6 +93,7 @@ export function PersonalOverview({ wealth, month, backcast, dueBalanceCount = 0 
         <h1 className="mt-3 text-3xl font-medium">我有多少钱</h1>
         <p className="mt-3 text-sm text-muted-foreground">余额截至 {wealth.today} · 点开数字查看明细</p>
       </header>
+      {bankAccountReminders.length ? <AccountChangeCard summaries={bankAccountReminders} /> : null}
       <section
         aria-label="资产与收支"
         className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3"

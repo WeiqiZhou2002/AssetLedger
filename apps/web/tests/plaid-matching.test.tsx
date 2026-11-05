@@ -40,6 +40,7 @@ import { accountBalance, listEntries } from "@/lib/ledger/queries";
 import { createSession } from "@/lib/auth/session";
 import { EntryDetailView } from "@/components/ledger/entry-detail";
 import { PendingView } from "@/components/bank-sync/pending-view";
+import { RecentAutoPosts } from "@/components/bank-sync/recent-auto-posts";
 import { jsonSafe } from "@/lib/serialization";
 
 let h: Awaited<ReturnType<typeof createTestDb>>;
@@ -832,7 +833,7 @@ it("paginates pairs once, filters either side, and renders both sides without cl
   }
   const pending = await pendingWorkbench(h.db, f.ownerId, "sandbox");
   expect(pending.recent).toHaveLength(1);
-  expect(renderToStaticMarkup(<PendingView {...props} data={jsonSafe(pending)} />)).toContain(label);
+  expect(renderToStaticMarkup(<RecentAutoPosts entries={jsonSafe(pending.recent)} />)).toContain(label);
   // A second pair and an ordinary entry exercise adjacent page boundaries and transfer type filters.
   await sync(bank, [tx(bank, "other", "12", "TRANSFER", { date: "2026-10-23" })]);
   const other = (await rows()).find((row) => row.providerTransactionId === "other")!;
