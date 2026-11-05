@@ -23,6 +23,6 @@ export async function healthStatus(
     status: db === "error" ? "error" : parser === "error" ? "degraded" : "ok",
     db,
     parser,
-    version: "0.1.1",
+    version: "0.2.0",
   };
 }
