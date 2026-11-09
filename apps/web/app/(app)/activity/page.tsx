@@ -1,3 +1,5 @@
+import { loadPlaidConfig } from "@/lib/bank-sync/config";
+import { listPendingTransactions, pendingSectionVisible } from "@/lib/bank-sync/pending-transactions";
 import { z } from "zod";
 import { getEntry } from "@/lib/ledger/entries";
 import { getDb } from "@/db/client";
@@ -9,6 +11,7 @@ import { listPurchaseGroups } from "@/lib/ledger/purchase-groups";
 import { getSettings } from "@/lib/ledger/settings";
 import { todayInTimezone } from "@/lib/ledger/format";
 import { filtersSchema } from "@/lib/ledger/schemas";
+import { ACTIVITY_DATE_BASIS } from "@/lib/ledger/constants";
 import { PageHeading } from "@/components/page-heading";
 import { ActivityView } from "@/components/ledger/activity-view";
 export const metadata = { title: "每日流水" };
@@ -28,13 +31,20 @@ export default async function ActivityPage({
   delete params.entryId;
   const initialEntry = detailId.success ? await getEntry(db, user.id, detailId.data).catch(() => null) : null;
   const settings = await getSettings(db, user.id);
-  const parsed = filtersSchema.safeParse({ basis: settings.spendingDateBasis, ...params });
-  const filters = parsed.success ? parsed.data : filtersSchema.parse({ basis: settings.spendingDateBasis });
-  const [data, accounts, categories, groups] = await Promise.all([
+  const parsed = filtersSchema.safeParse({ basis: ACTIVITY_DATE_BASIS, ...params });
+  const filters = parsed.success ? parsed.data : filtersSchema.parse({ basis: ACTIVITY_DATE_BASIS });
+  const [data, accounts, categories, groups, pending] = await Promise.all([
     listEntries(db, user.id, filters),
     listAccounts(db, user.id, true),
     listCategories(db, user.id),
     listPurchaseGroups(db, user.id),
+    pendingSectionVisible(filters)
+      ? loadPlaidConfig(db, user.id).then(({ config }) =>
+          config.PLAID_ENABLED === "true"
+            ? listPendingTransactions(db, user.id, config.PLAID_ENV, filters)
+            : null,
+        )
+      : Promise.resolve(null),
   ]);
   return (
     <>
@@ -48,6 +58,7 @@ export default async function ActivityPage({
         key={initialEntry?.id ?? "activity"}
         initialEntry={initialEntry}
         data={data}
+        pending={pending}
         accounts={accounts}
         categories={categories}
         groups={groups}

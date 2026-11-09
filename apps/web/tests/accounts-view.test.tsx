@@ -281,3 +281,14 @@ it("shows manual balance controls and reminder settings inside the account detai
   expect(html).toContain("余额更新提醒");
   expect(html).not.toMatch(/纳入口径|现金类已纳入|金融资产已纳入|\/reconciliation/);
 });
+
+it("links pending counts above recent activity only for an account with pending rows", () => {
+  props.pendingCounts = { [f.bank.id]: 2, [f.card.id]: 0 };
+  expect(renderToStaticMarkup(view())).not.toContain("待入账");
+  const bank = renderToStaticMarkup(detailSheet(clickTile(f.bank.id)));
+  expect(bank).toContain("待入账 2 笔 · 未计入收支");
+  expect(bank).toContain(`href="/activity?accountId=${f.bank.id}"`);
+  expect(bank.indexOf("待入账")).toBeLessThan(bank.indexOf("最近流水"));
+  expect(renderToStaticMarkup(detailSheet(clickTile(f.card.id)))).not.toContain("待入账");
+  expect(renderToStaticMarkup(detailSheet(clickTile(f.broker.id)))).not.toContain("待入账");
+});

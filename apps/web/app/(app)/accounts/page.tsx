@@ -11,6 +11,7 @@ import { listInstitutions } from "@/lib/ledger/accounts";
 import { cardMeta } from "@/lib/ledger/card-secrets";
 import { balancesAsOf } from "@/lib/ledger/queries";
 import { todayInTimezone } from "@/lib/ledger/format";
+import { pendingCountsByAccount } from "@/lib/bank-sync/pending-transactions";
 import { loadPlaidConfig } from "@/lib/bank-sync/config";
 import { BankConnectButton } from "@/components/bank-sync/connect-button";
 export const metadata = { title: "账户" };
@@ -19,16 +20,18 @@ export default async function AccountsPage() {
   const today = todayInTimezone(user.timezone);
   const db = getDb();
   const { config: env } = await loadPlaidConfig(db, user.id);
-  const [accounts, institutions, groups, benefits, positions, cards, tracking, rates] = await Promise.all([
-    balancesAsOf(db, user.id, today),
-    listInstitutions(db, user.id),
-    listAccountGroups(db, user.id),
-    benefitOverview(db, user.id, today),
-    accountPositions(db, user.id, today, { includeSuggestions: false }),
-    cardMeta(db, user.id),
-    accountBalanceTracking(db, user.id, today),
-    listFxRates(db, user.id),
-  ]);
+  const [accounts, institutions, groups, benefits, positions, cards, tracking, rates, pendingCounts] =
+    await Promise.all([
+      balancesAsOf(db, user.id, today),
+      listInstitutions(db, user.id),
+      listAccountGroups(db, user.id),
+      benefitOverview(db, user.id, today),
+      accountPositions(db, user.id, today, { includeSuggestions: false }),
+      cardMeta(db, user.id),
+      accountBalanceTracking(db, user.id, today),
+      listFxRates(db, user.id),
+      env.PLAID_ENABLED === "true" ? pendingCountsByAccount(db, user.id, env.PLAID_ENV) : Promise.resolve({}),
+    ]);
   return (
     <>
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
@@ -41,6 +44,7 @@ export default async function AccountsPage() {
         groups={groups}
         today={today}
         tracking={tracking}
+        pendingCounts={pendingCounts}
         rates={rates}
         baseCurrency={user.baseCurrency}
         syncIntervalHours={env.PLAID_SYNC_INTERVAL_HOURS}

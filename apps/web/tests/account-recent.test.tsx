@@ -48,7 +48,7 @@ it("fetches only the selected account on mount with stable-height loading and em
   const view = mount("synthetic-card");
   expect(view.initial).toContain("正在加载流水…");
   expect(view.initial).toContain("h-72 min-w-0 overflow-y-auto");
-  expect(fetcher).toHaveBeenCalledWith("/api/transactions?accountId=synthetic-card&limit=10", {
+  expect(fetcher).toHaveBeenCalledWith("/api/transactions?accountId=synthetic-card&limit=10&basis=event", {
     cache: "no-store",
     signal: expect.any(AbortSignal),
   });
@@ -84,10 +84,13 @@ it("aborts on close and ignores a late response from the previous account", asyn
   await new Promise((done) => setTimeout(done, 0));
   expect(first.render()).toContain("正在加载流水…");
   const second = mount("synthetic-second");
-  expect(fetcher).toHaveBeenLastCalledWith("/api/transactions?accountId=synthetic-second&limit=10", {
-    cache: "no-store",
-    signal: expect.any(AbortSignal),
-  });
+  expect(fetcher).toHaveBeenLastCalledWith(
+    "/api/transactions?accountId=synthetic-second&limit=10&basis=event",
+    {
+      cache: "no-store",
+      signal: expect.any(AbortSignal),
+    },
+  );
   expect(second.initial).toContain("正在加载流水…");
   second.cleanup?.();
 });

@@ -15,6 +15,7 @@ export const ownerTables = {
   loyalty_programs: schema.loyaltyPrograms,
   import_approvals: schema.importApprovals,
   import_rows: schema.importRows,
+  plaid_pending_transactions: schema.plaidPendingTransactions,
   bank_sync_runs: schema.bankSyncRuns,
   import_jobs: schema.importJobs,
   csv_mappings: schema.csvMappings,

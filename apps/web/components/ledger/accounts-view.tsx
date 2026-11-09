@@ -49,6 +49,7 @@ export function AccountsView({
   baseCurrency = "USD",
   rates = [],
   syncIntervalHours = 12,
+  pendingCounts = {},
 }: {
   accounts: AccountBalance[];
   institutions: Institution[];
@@ -62,6 +63,7 @@ export function AccountsView({
   baseCurrency?: string;
   rates?: FxRate[];
   syncIntervalHours?: number;
+  pendingCounts?: Record<string, number>;
   benefits?: { accountId: string; annual: string; rolling: string }[];
 }) {
   const [editing, setEditing] = useState<AccountBalance | "new" | null>(null);
@@ -217,6 +219,14 @@ export function AccountsView({
                   月 <InlineMoney value={detailBenefit?.rolling ?? "0"} currency={detail.currency} />
                 </Link>
               </section>
+            ) : null}
+            {(pendingCounts[detail.id] ?? 0) > 0 ? (
+              <Link
+                href={`/activity?accountId=${detail.id}`}
+                className="block text-xs text-muted-foreground hover:underline"
+              >
+                待入账 {pendingCounts[detail.id]} 笔 · 未计入收支
+              </Link>
             ) : null}
             <AccountRecent key={detail.id} accountId={detail.id} />
             <div className="flex flex-wrap gap-2 border-t pt-4">

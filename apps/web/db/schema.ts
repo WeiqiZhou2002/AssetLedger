@@ -465,6 +465,33 @@ export const bankConnectionAccounts = pgTable(
   ],
 );
 
+export const plaidPendingTransactions = pgTable(
+  "plaid_pending_transactions",
+  {
+    ...owned(),
+    connectionId: uuid("connection_id").notNull(),
+    plaidAccountId: text("plaid_account_id").notNull(),
+    providerTransactionId: text("provider_transaction_id").notNull(),
+    transactionDate: date("transaction_date").notNull(),
+    amount: numeric("amount", { precision: 20, scale: 4 }).notNull(),
+    currency: char("currency", { length: 3 }).notNull(),
+    merchant: text("merchant").notNull(),
+    description: text("description").notNull(),
+  },
+  (t) => [
+    unique("plaid_pending_provider_unique").on(t.ownerId, t.connectionId, t.providerTransactionId),
+    foreignKey({
+      columns: [t.ownerId, t.connectionId],
+      foreignColumns: [bankConnections.ownerId, bankConnections.id],
+    }),
+    foreignKey({
+      columns: [t.connectionId, t.plaidAccountId],
+      foreignColumns: [bankConnectionAccounts.connectionId, bankConnectionAccounts.plaidAccountId],
+    }),
+    index("plaid_pending_owner_date_idx").on(t.ownerId, t.transactionDate),
+  ],
+);
+
 export const bankSyncRuns = pgTable(
   "bank_sync_runs",
   {

@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { InlineMoney } from "@/components/money-amount";
-import { entryLabels } from "@/lib/ledger/constants";
+import { ACTIVITY_DATE_BASIS, entryLabels } from "@/lib/ledger/constants";
 import { money } from "@/lib/money";
 import type { EntryList } from "./types";
 
@@ -59,10 +59,13 @@ export function AccountRecent({ accountId }: { accountId: string }) {
     const controller = new AbortController();
     async function load() {
       try {
-        const response = await fetch(`/api/transactions?accountId=${accountId}&limit=10`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
+        const response = await fetch(
+          `/api/transactions?accountId=${accountId}&limit=10&basis=${ACTIVITY_DATE_BASIS}`,
+          {
+            cache: "no-store",
+            signal: controller.signal,
+          },
+        );
         if (!response.ok) throw new Error("recent_entries_unavailable");
         const result: EntryList = await response.json();
         if (!controller.signal.aborted) setData(result);
