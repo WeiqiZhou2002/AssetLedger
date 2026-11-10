@@ -48,6 +48,9 @@ export function LedgerSettings({
             <option value="posted">入账日，缺失时用发生日</option>
             <option value="event">发生日</option>
           </SelectField>
+          <p className="text-xs leading-6 text-muted-foreground">
+            只影响收支统计；流水列表默认按发生日排序，可在筛选中切换。
+          </p>
           <Button disabled={mutation.pending} type="submit">
             保存偏好
           </Button>

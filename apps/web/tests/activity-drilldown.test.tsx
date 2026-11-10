@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
 import { sql } from "drizzle-orm";
 import { NextRequest } from "next/server";
+import { Children, isValidElement, useState, type ComponentProps, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createTestDb } from "./helpers/db";
 import { ledgerFixture } from "./helpers/ledger";
@@ -14,6 +15,9 @@ import { stampAutoEntry } from "@/lib/bank-sync/auto-state";
 import { createSession } from "@/lib/auth/session";
 import { monthActivity } from "@/lib/dashboard/activity";
 import { RecentEntryRows } from "@/components/ledger/account-recent";
+import { ActivityView } from "@/components/ledger/activity-view";
+import { LedgerSettings } from "@/components/ledger/settings-view";
+import { getSettings, updateSettings } from "@/lib/ledger/settings";
 import type { EntryList } from "@/components/ledger/types";
 
 let h: Awaited<ReturnType<typeof createTestDb>>;
@@ -22,8 +26,15 @@ vi.mock("@/db/client", () => ({ getDb: () => h.db }));
 vi.mock("@/lib/auth/current-user", () => ({
   requireUser: async () => ({ id: f.ownerId, timezone: "UTC", baseCurrency: "USD" }),
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("react", async (original) => {
+  const actual = await original<typeof import("react")>();
+  return { ...actual, useState: vi.fn(actual.useState) };
+});
+const realReact = await vi.importActual<typeof import("react")>("react");
 const route = await import("@/app/api/transactions/route");
 const { default: Details } = await import("@/app/(app)/dashboard/details/page");
+const { default: ActivityPage } = await import("@/app/(app)/activity/page");
 beforeAll(async () => {
   h = await createTestDb();
   vi.stubEnv("APP_URL", "http://localhost:3000");
@@ -258,4 +269,120 @@ it("caps monthly contributions at 100 with an exact count and all-activity link"
   const html = renderToStaticMarkup(page);
   expect(html).toContain("显示最近 100 笔，共 101 笔。");
   expect(html).toContain("view=income&amp;status=confirmed");
+});
+
+async function activity(params: Record<string, string> = {}) {
+  const page = await ActivityPage({ searchParams: Promise.resolve(params) });
+  const view = Children.toArray(page.props.children).find(
+    (child) => isValidElement<ComponentProps<typeof ActivityView>>(child) && child.type === ActivityView,
+  );
+  if (!isValidElement<ComponentProps<typeof ActivityView>>(view)) throw new Error("activity_view_missing");
+  return { page, props: view.props };
+}
+
+it("defaults activity order, day groups and date filters to event dates while preserving explicit posted dates", async () => {
+  await updateSettings(h.db, f.ownerId, { prepaymentMode: "asset", spendingDateBasis: "posted" });
+  const earlier = await quick({
+    type: "expense",
+    fromAccountId: f.bank.id,
+    amount: "11",
+    categoryId: f.category("购物"),
+    merchant: "Example Earlier Purchase",
+    eventDate: "2026-10-20",
+    postedDate: "2026-10-23",
+  });
+  const later = await quick({
+    type: "expense",
+    fromAccountId: f.bank.id,
+    amount: "12",
+    categoryId: f.category("购物"),
+    merchant: "Example Later Purchase",
+    eventDate: "2026-10-22",
+    postedDate: "2026-10-22",
+  });
+  for (const [params, expectedIds, expectedDates, caption] of [
+    [{}, [later.id, earlier.id], ["2026-10-22", "2026-10-20"], "按发生日期"],
+    [{ basis: "posted" }, [earlier.id, later.id], ["2026-10-23", "2026-10-22"], "按入账日期"],
+  ] satisfies [Record<string, string>, string[], string[], string][]) {
+    const { page, props } = await activity(params);
+    expect(props.settings.spendingDateBasis).toBe("posted");
+    expect(props.data.entries.map((entry) => entry.id)).toEqual(expectedIds);
+    expect(props.data.entries.map((entry) => entry.effectiveDate)).toEqual(expectedDates);
+    const html = renderToStaticMarkup(page);
+    expect([...html.matchAll(/<h2[^>]*>(\d{4}-\d{2}-\d{2})<\/h2>/g)].map((match) => match[1])).toEqual(
+      expectedDates,
+    );
+    expect(html).toContain(caption);
+  }
+  const eventDay = await activity({ from: "2026-10-20", to: "2026-10-20" });
+  expect(eventDay.props.data.entries.map((entry) => entry.id)).toEqual([earlier.id]);
+  const postedDay = await activity({ from: "2026-10-20", to: "2026-10-20", basis: "posted" });
+  expect(postedDay.props.data.entries).toEqual([]);
+  const fallback = await activity({ from: "invalid-date", basis: "posted" });
+  expect(fallback.props.data.entries.map((entry) => entry.id)).toEqual([later.id, earlier.id]);
+  expect(renderToStaticMarkup(fallback.page)).toContain("筛选条件无效，已显示默认范围。");
+  expect(renderToStaticMarkup(fallback.page)).toContain("按发生日期");
+  // Shared API/query defaults and explicit statistical drill-down bases remain posted.
+  expect(filtersSchema.parse({}).basis).toBe("posted");
+  expect((await listEntries(h.db, f.ownerId)).entries.map((entry) => entry.id)).toEqual([
+    earlier.id,
+    later.id,
+  ]);
+  const detail = await Details({ searchParams: Promise.resolve({ view: "spending", month: "2026-10" }) });
+  const html = renderToStaticMarkup(detail);
+  expect(html).toContain("basis=posted&amp;view=spending");
+  expect(html.indexOf(`/activity?entryId=${earlier.id}`)).toBeLessThan(
+    html.indexOf(`/activity?entryId=${later.id}`),
+  );
+});
+
+it("uses the event default for the activity caption and date select independently of spending settings", async () => {
+  const { props } = await activity();
+  for (const [filters, basis, spendingDateBasis] of [
+    [{}, "event", "posted"],
+    [{ basis: "posted" }, "posted", "event"],
+  ] satisfies [Record<string, string>, "event" | "posted", "event" | "posted"][]) {
+    const state: unknown[] = [];
+    function view() {
+      let cursor = 0;
+      vi.mocked(useState).mockImplementation(<S,>(initial?: S | (() => S)) => {
+        const index = cursor++;
+        if (!(index in state))
+          state[index] = typeof initial === "function" ? (initial as () => S)() : initial;
+        return [
+          state[index] as S,
+          (next: S | ((previous: S) => S)) => {
+            state[index] =
+              typeof next === "function" ? (next as (previous: S) => S)(state[index] as S) : next;
+          },
+        ];
+      });
+      try {
+        return ActivityView({ ...props, filters, settings: { ...props.settings, spendingDateBasis } });
+      } finally {
+        vi.mocked(useState).mockImplementation(realReact.useState);
+      }
+    }
+    type Props = { children?: ReactNode; "aria-expanded"?: boolean; onClick?: () => void };
+    const nodes = (tree: ReactNode): React.ReactElement<Props>[] =>
+      Children.toArray(tree).flatMap((node) =>
+        isValidElement<Props>(node) ? [node, ...nodes(node.props.children)] : [],
+      );
+    nodes(view()).find((node) => node.props["aria-expanded"] === false)!.props.onClick!();
+    const html = renderToStaticMarkup(view());
+    expect(html).toContain(basis === "event" ? "按发生日期" : "按入账日期");
+    const select = html.match(/<select[^>]*name="basis"[^>]*>([\s\S]*?)<\/select>/)?.[1];
+    expect(select).toContain(`value="${basis}" selected=""`);
+    expect(select).toContain("发生日");
+    expect(select).toContain("入账日（无则用发生日）");
+  }
+});
+
+it("explains the statistics-only date setting without changing its selected value", async () => {
+  const settings = await getSettings(h.db, f.ownerId);
+  const html = renderToStaticMarkup(<LedgerSettings settings={settings} categories={f.categories} />);
+  expect(html).toContain("只影响收支统计；流水列表默认按发生日排序，可在筛选中切换。");
+  expect(html.indexOf("消费统计日期口径")).toBeLessThan(html.indexOf("只影响收支统计"));
+  const select = html.match(/<select[^>]*name="spendingDateBasis"[^>]*>([\s\S]*?)<\/select>/)?.[1];
+  expect(select).toContain('value="posted" selected=""');
 });

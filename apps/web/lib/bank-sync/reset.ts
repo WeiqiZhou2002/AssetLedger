@@ -9,6 +9,7 @@ import { collectReset } from "./reset-plan";
 import { resetReferences, clearResetReferences } from "./reset-references";
 import { rememberResetCategories } from "./reset-memory";
 import { writeResetRecovery } from "./reset-files";
+import { deletePendingForConnection } from "./pending-transactions";
 import { syncCounts } from "./run-counts";
 import type { ResetConfig } from "./reset-types";
 
@@ -125,6 +126,7 @@ export async function executeReset(
       }
       const jobs: { connectionId: string; jobId: string }[] = [];
       for (const connection of data.selection.connections) {
+        await deletePendingForConnection(tx, ownerId, connection.id);
         await tx
           .update(s.importJobs)
           .set({ status: "failed", errorKind: "SYNC_GENERATION_SUPERSEDED", lockedAt: null, lockedBy: null })

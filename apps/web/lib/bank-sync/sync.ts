@@ -7,9 +7,9 @@ import { invariant, LedgerError } from "@/lib/ledger/errors";
 import { ensureDefaultCategories } from "@/lib/ledger/categories";
 import { auditLedger } from "@/lib/ledger/audit";
 import { importLock } from "@/lib/imports/store";
-import { normalizeMerchant, maskDigits, sha256 } from "@/lib/imports/text";
+import { normalizeMerchant, sha256 } from "@/lib/imports/text";
 import { refreshOwnerSuggestions } from "@/lib/imports/suggestions";
-import type { BankClient, BankTransaction, Holdings, PlaidConfig, SyncPage } from "./types";
+import type { BankClient, Holdings, PlaidConfig, SyncPage } from "./types";
 import {
   connectionAccounts,
   requireConnection,
@@ -28,6 +28,9 @@ import { autoPostOwnerRows } from "./auto-post";
 import { CORE_SWEEP_NOTE, isCoreSweep } from "./core-sweeps";
 import { registerWebhook } from "./webhook-registration";
 import { pollNewAccountEvents } from "./webhook-events";
+import { sanitized } from "./transaction-payload";
+export { signedPlaidAmount } from "./transaction-payload";
+import { applyPendingTransactions } from "./pending-transactions";
 type SyncBatch = Omit<SyncPage, "hasMore">;
 export async function collectSync(
   client: BankClient,
@@ -67,25 +70,6 @@ export async function collectSync(
     }
   }
   return null;
-}
-export function signedPlaidAmount(value: string) {
-  return money(value).negated().toFixed(4);
-}
-function sanitized(row: BankTransaction) {
-  return {
-    transactionId: row.id,
-    accountId: row.accountId,
-    amount: signedPlaidAmount(row.amount),
-    postedDate: row.date,
-    transactionDate: row.authorizedDate ?? row.date,
-    name: maskDigits(row.name),
-    description: maskDigits(row.originalDescription ?? row.name),
-    merchant: maskDigits(row.merchantName ?? row.name),
-    currency: row.currency,
-    pending: row.pending,
-    primary: row.primary,
-    detailed: row.detailed,
-  };
 }
 async function dailyContainer(db: AppDb, ownerId: string, connection: Connection, date: string) {
   const [row] = await db
@@ -174,6 +158,12 @@ async function applySync(
             eq(importRows.providerTransactionId, transaction.id),
           ),
         );
+      if (transaction.pending && !existing) {
+        if (mapped.find((row) => row.plaidAccountId === transaction.accountId)?.type === "loan")
+          counts.loanTransactionsSkipped++;
+        else counts.pendingSkipped++;
+        continue;
+      }
       if (existing && kind === "added") continue;
       const payload = sanitized(transaction);
       // Old payloads omitted name; adding it alone must not replace an unchanged entry.
@@ -320,6 +310,7 @@ async function applySync(
     await auditLedger(db, ownerId, "import_row", row.id, "bank.upstream_removed");
     counts.removed++;
   }
+  if (batch) await applyPendingTransactions(db, ownerId, connection, batch, mapped, now);
   for (const id of touched)
     await db
       .update(statements)

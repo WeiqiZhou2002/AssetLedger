@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  ACTIVITY_DATE_BASIS,
   entryLabels,
   entryTypes,
   systemTypes,
@@ -25,6 +26,8 @@ import {
 import { formatAmount } from "@/lib/ledger/format";
 import { money } from "@/lib/money";
 import { Field, FormError, FormSheet, SelectField, api } from "./forms";
+import { PendingTransactionsSection } from "./pending-transactions";
+import type { PendingTransactions } from "@/lib/bank-sync/pending-transactions";
 import { QuickEntry } from "./quick-entry";
 import { SplitEditor } from "./split-editor";
 import { EntryDetailView } from "./entry-detail";
@@ -49,6 +52,7 @@ function EntryIcon({ type }: { type: EntryType }) {
 }
 export function ActivityView({
   initialEntry,
+  pending = null,
   data,
   accounts,
   categories,
@@ -58,6 +62,7 @@ export function ActivityView({
   filters,
 }: {
   initialEntry?: EntryDetail | null;
+  pending?: PendingTransactions | null;
   data: EntryList;
   accounts: Account[];
   categories: Category[];
@@ -139,11 +144,7 @@ export function ActivityView({
             >
               <Field name="from" label="开始日期" type="date" defaultValue={filters.from} />
               <Field name="to" label="结束日期" type="date" defaultValue={filters.to} />
-              <SelectField
-                name="basis"
-                label="日期口径"
-                defaultValue={filters.basis ?? settings.spendingDateBasis}
-              >
+              <SelectField name="basis" label="日期口径" defaultValue={filters.basis ?? ACTIVITY_DATE_BASIS}>
                 <option value="posted">入账日（无则用发生日）</option>
                 <option value="event">发生日</option>
               </SelectField>
@@ -196,12 +197,11 @@ export function ActivityView({
               </div>
             </form>
           ) : null}
+          {pending && pending.total > 0 ? <PendingTransactionsSection pending={pending} /> : null}
           <p className="mb-5 text-xs leading-6 text-muted-foreground">
             {data.total} 笔记录 ·{" "}
-            {filters.basis === "event" || (!filters.basis && settings.spendingDateBasis === "event")
-              ? "按发生日期"
-              : "按入账日期"}{" "}
-            · 金额为每个币种借方合计，退款以负数展示。草稿和作废不计入余额或消费统计。
+            {(filters.basis ?? ACTIVITY_DATE_BASIS) === "event" ? "按发生日期" : "按入账日期"} ·
+            金额为每个币种借方合计，退款以负数展示。草稿和作废不计入余额或消费统计。
           </p>
           <FormError error={error} />
           {days.length ? (

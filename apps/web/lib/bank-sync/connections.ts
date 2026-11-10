@@ -1,3 +1,4 @@
+import { deletePendingForConnection, deletePendingForBankAccounts } from "./pending-transactions";
 import { loadPlaidConfig } from "./config";
 import { and, desc, eq, inArray, sql, ne, notInArray, isNull } from "drizzle-orm";
 import { z } from "zod";
@@ -565,6 +566,13 @@ export async function saveMapping(
         ...(replay ? { transactionsCursor: null } : {}),
       })
       .where(and(eq(bankConnections.ownerId, ownerId), eq(bankConnections.id, id)));
+    const updated = await connectionAccounts(tx, ownerId, id);
+    await deletePendingForBankAccounts(
+      tx,
+      ownerId,
+      id,
+      updated.filter((row) => !row.isEnabled || !row.accountId).map((row) => row.plaidAccountId),
+    );
     await auditLedger(tx, ownerId, "bank_connection", id, "bank.mapping");
     await queueSync(tx, ownerId, id, config, false, now);
   });
@@ -605,6 +613,7 @@ export async function removeConnection(
           inArray(importJobs.status, ["queued", "running"]),
         ),
       );
+    await deletePendingForConnection(tx, ownerId, id);
     await auditLedger(tx, ownerId, "bank_connection", id, "bank.remove");
     return publicConnection(row);
   });

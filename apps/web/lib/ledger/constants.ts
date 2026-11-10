@@ -1,3 +1,5 @@
+export const ACTIVITY_DATE_BASIS = "event" as const;
+
 export const accountTypes = [
   "asset_cash",
   "asset_brokerage_cash",
