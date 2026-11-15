@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { assertOrigin, mutation } from "@/lib/auth/http";
+import { assertOrigin, mutation, readJson, readOptionalJson } from "@/lib/auth/http";
 import { healthStatus } from "@/lib/health";
 import { readEnv } from "@/lib/env";
 import { proxy } from "@/proxy";
@@ -138,4 +138,82 @@ it("rejects malformed configured extra origins without leaking config", () => {
   vi.stubEnv("EXTRA_ALLOWED_ORIGINS", "https://example.com/path");
   expect(() => readEnv()).toThrow("EXTRA_ALLOWED_ORIGINS");
   vi.unstubAllEnvs();
+});
+
+function jsonRequest(body?: string, contentType: string | null = "application/json") {
+  const request = new NextRequest("http://localhost:3000/api/synthetic", {
+    method: "POST",
+    ...(body === undefined ? {} : { body }),
+    ...(contentType === null ? {} : { headers: { "content-type": contentType } }),
+  });
+  // Fetch supplies text/plain for string bodies unless explicitly removed.
+  if (contentType === null) request.headers.delete("content-type");
+  return request;
+}
+
+it.each([undefined, "", " \r\n\t"])(
+  "accepts absent/empty optional JSON without a content type: %j",
+  async (body) => {
+    for (const contentType of [null, "application/json", "text/plain"]) {
+      const request = jsonRequest(body, contentType);
+      expect(request.headers.get("content-type")).toBe(contentType);
+      if (body !== undefined) expect(request.body).not.toBeNull();
+      await expect(readOptionalJson(request)).resolves.toBeUndefined();
+    }
+  },
+);
+
+it("keeps required JSON content-type and empty-body failures unchanged", async () => {
+  await expect(readJson(jsonRequest(undefined, null))).rejects.toMatchObject({ status: 415 });
+  await expect(readJson(jsonRequest(undefined))).rejects.toMatchObject({
+    status: 400,
+    message: "请求内容为空",
+  });
+  for (const body of ["", " \r\n\t"]) {
+    await expect(readJson(jsonRequest(body))).rejects.toBeInstanceOf(SyntaxError);
+    await expect(readJson(jsonRequest(body, null))).rejects.toMatchObject({ status: 415 });
+  }
+});
+
+it.each([
+  { name: "required", read: readJson },
+  { name: "optional", read: readOptionalJson },
+])("validates and parses non-empty $name JSON with the existing content-type rules", async ({ read }) => {
+  await expect(
+    read(jsonRequest(' {"accountSelection":true} ', "application/json; charset=utf-8")),
+  ).resolves.toEqual({ accountSelection: true });
+  await expect(read(jsonRequest("null"))).resolves.toBeNull();
+  await expect(read(jsonRequest("{"))).rejects.toBeInstanceOf(SyntaxError);
+  for (const type of [null, "text/plain"])
+    await expect(read(jsonRequest("{}", type))).rejects.toMatchObject({ status: 415 });
+});
+
+it.each([
+  { name: "required", read: readJson },
+  { name: "optional", read: readOptionalJson },
+])("enforces byte limits for $name JSON and cancels an oversized multi-chunk stream", async ({ read }) => {
+  const body = '{"name":"示例"}';
+  const bytes = Buffer.byteLength(body, "utf8");
+  await expect(read(jsonRequest(body), bytes)).resolves.toEqual({ name: "示例" });
+  await expect(read(jsonRequest(body), bytes - 1)).rejects.toMatchObject({ status: 413 });
+  const cancel = vi.fn();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new TextEncoder().encode("     "));
+      controller.enqueue(new TextEncoder().encode("    "));
+    },
+    cancel,
+  });
+  const request = new Request("http://localhost:3000/api/synthetic", {
+    method: "POST",
+    body: stream,
+    duplex: "half",
+    headers: { "content-type": "application/json", "content-length": "1" },
+  } as RequestInit);
+  await expect(read(request, 8)).rejects.toMatchObject({ status: 413 });
+  expect(cancel).toHaveBeenCalledOnce();
+});
+
+it("checks the optional body size even for whitespace without a content type", async () => {
+  await expect(readOptionalJson(jsonRequest(" ".repeat(8193), null))).rejects.toMatchObject({ status: 413 });
 });
