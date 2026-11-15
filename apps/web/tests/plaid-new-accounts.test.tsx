@@ -122,6 +122,18 @@ async function request(
 }
 const context = (id: string) => ({ params: Promise.resolve({ id }) });
 
+async function rawRequest(id: string, endpoint: string, body: string, contentType: string | null) {
+  const base = await request(id);
+  const raw = new NextRequest(`${base.url}/${endpoint}`, {
+    method: "POST",
+    headers: base.headers,
+    body,
+  });
+  if (contentType === null) raw.headers.delete("content-type");
+  else raw.headers.set("content-type", contentType);
+  return raw;
+}
+
 it("registers only HTTPS URLs on new Link tokens and sends product-free account selection in update mode", async () => {
   expect(plaidWebhookUrl(config.APP_URL)).toBe("http://localhost:3000/api/plaid/webhook");
   expect(plaidWebhookUrl(https.APP_URL)).toBe("https://ledger.example.test/api/plaid/webhook");
@@ -260,6 +272,66 @@ it("reauth accepts the optional selection flag, clears the reminder and keeps qu
   );
   expect((await requireConnection(h.db, f.ownerId, id)).newAccountsAvailableAt).toBeNull();
   expect(await h.db.select().from(importJobs)).toHaveLength(1);
+});
+
+it.each([
+  { body: "", contentType: "application/json" },
+  { body: "", contentType: null },
+  { body: " \r\n\t", contentType: "application/json" },
+  { body: " \r\n\t", contentType: null },
+])(
+  "reauthorizes a login-required connection with an empty stream ($contentType, $body)",
+  async ({ body, contentType }) => {
+    const id = await connect();
+    await flag(id);
+    await h.db
+      .update(bankConnections)
+      .set({ status: "login_required", errorCode: "ITEM_LOGIN_REQUIRED" })
+      .where(eq(bankConnections.id, id));
+    const accountsRequest = vi.spyOn(client, "accounts");
+    const linkRequest = await rawRequest(id, "link-token", body, contentType);
+    expect(linkRequest.body).not.toBeNull();
+    expect(linkRequest.headers.get("content-type")).toBe(contentType);
+    expect((await linkRoute.POST(linkRequest, context(id))).status).toBe(200);
+    expect(client.linkRequests.at(-1)).not.toHaveProperty("update");
+    expect((await requireConnection(h.db, f.ownerId, id)).status).toBe("login_required");
+    const reauthRequest = await rawRequest(id, "reauth", body, contentType);
+    expect(reauthRequest.body).not.toBeNull();
+    expect(reauthRequest.headers.get("content-type")).toBe(contentType);
+    expect((await reauthRoute.POST(reauthRequest, context(id))).status).toBe(200);
+    expect(accountsRequest).toHaveBeenCalledOnce();
+    expect(await requireConnection(h.db, f.ownerId, id)).toMatchObject({
+      status: "active",
+      errorCode: null,
+      newAccountsAvailableAt: now,
+    });
+    expect(await h.db.select().from(importJobs)).toHaveLength(1);
+  },
+);
+
+it.each([
+  { kind: "malformed JSON", body: "{", status: 400 },
+  { kind: "unknown key", body: '{"unknown":true}', status: 400 },
+  { kind: "non-boolean flag", body: '{"accountSelection":"true"}', status: 400 },
+  { kind: "JSON null", body: "null", status: 400 },
+  { kind: "oversize whitespace", body: " ".repeat(8193), status: 413 },
+])("rejects $kind on both update-mode routes before contacting Plaid", async ({ body, status }) => {
+  const id = await connect();
+  await h.db
+    .update(bankConnections)
+    .set({ status: "login_required", errorCode: "ITEM_LOGIN_REQUIRED" })
+    .where(eq(bankConnections.id, id));
+  const accountsRequest = vi.spyOn(client, "accounts");
+  for (const [endpoint, route] of [
+    ["reauth", reauthRoute],
+    ["link-token", linkRoute],
+  ] as const) {
+    const response = await route.POST(await rawRequest(id, endpoint, body, "application/json"), context(id));
+    expect(response.status).toBe(status);
+  }
+  expect(accountsRequest).not.toHaveBeenCalled();
+  expect(client.linkRequests).toEqual([]);
+  expect((await requireConnection(h.db, f.ownerId, id)).status).toBe("login_required");
 });
 
 it("preserves investment values when holdings omit an account and observes zero only for a returned empty portfolio", async () => {

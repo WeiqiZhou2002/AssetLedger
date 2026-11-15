@@ -65,11 +65,13 @@ export function mutation(handler: (request: NextRequest) => Promise<NextResponse
     }
   };
 }
-export async function readJson(request: Request, maxBytes = 8192): Promise<unknown> {
+function assertJsonContentType(request: Request) {
   if (!request.headers.get("content-type")?.startsWith("application/json"))
     throw new HttpError(415, "请使用 JSON 请求");
+}
+async function readBodyText(request: Request, maxBytes: number): Promise<string | undefined> {
   const reader = request.body?.getReader();
-  if (!reader) throw new HttpError(400, "请求内容为空");
+  if (!reader) return undefined;
   const chunks: Uint8Array[] = [];
   let length = 0;
   for (;;) {
@@ -82,7 +84,19 @@ export async function readJson(request: Request, maxBytes = 8192): Promise<unkno
     }
     chunks.push(value);
   }
-  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+  return Buffer.concat(chunks).toString("utf8");
+}
+export async function readJson(request: Request, maxBytes = 8192): Promise<unknown> {
+  assertJsonContentType(request);
+  const text = await readBodyText(request, maxBytes);
+  if (text === undefined) throw new HttpError(400, "请求内容为空");
+  return JSON.parse(text);
+}
+export async function readOptionalJson(request: Request, maxBytes = 8192): Promise<unknown> {
+  const text = await readBodyText(request, maxBytes);
+  if (text === undefined || text.trim() === "") return undefined;
+  assertJsonContentType(request);
+  return JSON.parse(text);
 }
 export function loginContext(request: NextRequest) {
   const env = readEnv();

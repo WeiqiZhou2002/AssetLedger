@@ -39,7 +39,7 @@ export function LinkLaunch({
             await api(
               `/api/plaid/connections/${session.connectionId}/reauth`,
               "POST",
-              session.accountSelection ? { accountSelection: true } : undefined,
+              session.accountSelection ? { accountSelection: true } : {},
             );
           else {
             const result = await api<{ connection: { id: string } }>("/api/plaid/exchange", "POST", {

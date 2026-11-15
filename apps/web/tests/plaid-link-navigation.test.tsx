@@ -83,6 +83,7 @@ afterEach(() => vi.unstubAllGlobals());
 it.each([
   { oauth: false, update: false },
   { oauth: true, update: false },
+  { oauth: false, update: true },
   { oauth: true, update: true },
   { oauth: false, update: true, accountSelection: true },
   { oauth: true, update: true, accountSelection: true },
@@ -120,5 +121,6 @@ it.each([
     );
     expect(router.replace).not.toHaveBeenCalled();
     if (accountSelection) expect(request.mock.calls[0][2]).toEqual({ accountSelection: true });
+    else if (update) expect(request.mock.calls[0][2]).toEqual({});
   },
 );

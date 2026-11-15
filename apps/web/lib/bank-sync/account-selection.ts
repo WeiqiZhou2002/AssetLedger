@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { readJson } from "@/lib/auth/http";
+import { readOptionalJson } from "@/lib/auth/http";
 
 export async function readAccountSelection(request: Request) {
+  const body = await readOptionalJson(request);
   return z
     .object({ accountSelection: z.boolean().optional() })
     .strict()
-    .parse(request.body ? await readJson(request) : {});
+    .parse(body === undefined ? {} : body);
 }
