@@ -1,0 +1,16 @@
+{
+  "catalog_version": "2026.11.18-draft.3",
+  "api_version": 1,
+  "contract": { "name": "credit-progress", "format_version": 1 },
+  "fetched_on": "2026-11-19",
+  "feed": {
+    "path": "credits.json",
+    "url": "https://weiqizhou2002.github.io/cardfacts/api/v1/credits.json",
+    "sha256": "e29c07157bcc2c7f25bdc272ec3a49f47a4d35436b0cf6917f679affa9121296"
+  },
+  "vectors": {
+    "path": "../../../tests/fixtures/cardfacts/credit-vectors.json",
+    "url": "https://weiqizhou2002.github.io/cardfacts/api/v1/credits/vectors.json",
+    "sha256": "1d5aafebcb73e2302f4a89bc41bd29997481eeb9fd917cea4aa351b572fcf6b6"
+  }
+}

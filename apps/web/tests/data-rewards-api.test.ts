@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestDb } from "./helpers/db";
 import { ledgerFixture } from "./helpers/ledger";
-import { users, sessions, statements, loyaltyEvents } from "@/db/schema";
+import { users, sessions, statements, loyaltyEvents, cardBenefitProfiles } from "@/db/schema";
 import { createSession } from "@/lib/auth/session";
 import { hashPassword } from "@/lib/auth/password";
 import { makeTotp } from "@/lib/auth/totp";
@@ -234,6 +234,10 @@ it("deletes every owned table and only the owner's unshared files, including pag
   const pageDir = join(dir, "statements", own.fileSha256!, "pages");
   await mkdir(pageDir, { recursive: true });
   await writeFile(join(pageDir, "1.png"), "synthetic");
+  await h.db.insert(cardBenefitProfiles).values([
+    { ownerId: f.ownerId, accountId: f.card.id, catalogProductId: "example-voyager" },
+    { ownerId: f.otherId, accountId: otherCard.id, catalogProductId: "example-other" },
+  ]);
   const otherBefore = await exportOwnerData(h.db, f.otherId);
   const log = vi.spyOn(console, "info").mockImplementation(() => {});
   const response = await deletion.DELETE(

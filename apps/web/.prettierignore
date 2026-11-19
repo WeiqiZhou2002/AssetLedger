@@ -2,3 +2,6 @@
 dist/
 node_modules/
 next-env.d.ts
+# Vendored bytes are verified against catalog/credits.lock.json.
+lib/benefits/catalog/credits.json
+tests/fixtures/cardfacts/credit-vectors.json

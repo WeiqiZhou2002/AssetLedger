@@ -5,6 +5,7 @@
 ## 目录
 
 - [功能细节与数据规则](#功能细节与数据规则)
+- [CardFacts 权益目录](#cardfacts-权益目录)
 - [安装脚本细节](#安装脚本细节)
 - [Plaid 银行同步](#plaid-银行同步)
 - [迁移银行连接](#迁移银行连接)
@@ -35,6 +36,21 @@
 余额观察记录实际余额，不生成流水；信用卡欠款为负数，溢缴款为正数。消费按支出科目的净额统计，转账、还卡、投资本金不计消费。积分使用 BIGINT，金额使用 Decimal；积分估值不计入净资产。快照、对账和 Excel 迁移已不再提供产品入口。
 
 手工余额日期不能晚于所有者本地今天，缺少外币汇率时不能保存。首次同步即可开始积累余额记录，无需补建期初。手工账户没有观察或观察日期严格早于「今天减提醒天数」时显示「待更新」。
+
+## CardFacts 权益目录
+
+卡权益进度使用随代码固定的 CardFacts credits feed，运行时不联网。目录位于
+`apps/web/lib/benefits/catalog/credits.json`，契约向量位于
+`apps/web/tests/fixtures/cardfacts/credit-vectors.json`；同目录的 `credits.lock.json` 保存版本、下载地址和两个文件的 SHA-256。
+两个数据文件均在 `apps/web/.prettierignore` 中排除，须保留原始字节。
+
+更新时从 lock 中的两个 URL 下载新版本，核对发布版本及 SHA-256，将两个文件与更新后的 lock 一起提交，
+然后运行 `pnpm -C apps/web exec vitest run tests/benefit-catalog.test.ts tests/benefit-vectors.test.ts`。
+API 或进度契约版本变化必须先更新并验证解析器和引擎；不要仅替换哈希以绕过校验。
+
+所有者选择卡产品后才按目录计算报销进度，名称与机构只提供建议。开户日期、账单日和可选跟踪起始日决定周期；
+进度读取已有已确认权益退款，不修改账本。年度汇总不包含跨年的多年度权益窗口；这些权益在明细中展示可用状态。
+卡产品选择包含在个人导出与删除全部数据中，Plaid 重置保留选择。
 
 ## 安装脚本细节
 

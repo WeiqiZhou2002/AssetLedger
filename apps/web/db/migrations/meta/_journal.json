@@ -176,6 +176,13 @@
       "when": 1794172559859,
       "tag": "0024_plaid_pending_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795130844027,
+      "tag": "0025_shocking_ricochet",
+      "breakpoints": true
     }
   ]
 }

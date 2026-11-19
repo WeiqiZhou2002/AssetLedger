@@ -1,18 +1,48 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import type { benefitOverview } from "@/lib/benefits/queries";
+import type { BenefitCard, BenefitData as Data } from "./types";
+import { BenefitProfileForm } from "./profile-form";
+import { BenefitCatalogFooter, BenefitProgressSection } from "./progress";
+import { money } from "@/lib/money";
 import { InlineMoney, MoneyAmount } from "@/components/money-amount";
 import { FormSheet } from "@/components/ledger/forms";
 import { accountTileGrid, accountTileClass } from "@/components/ledger/account-tile";
-type Data = Awaited<ReturnType<typeof benefitOverview>>;
-export function BenefitDetails({ card, year }: { card: Data["cards"][number]; year: string }) {
+export function BenefitDetails({
+  card,
+  year,
+  products = [],
+}: {
+  card: BenefitCard;
+  year: string;
+  products?: Data["products"];
+}) {
+  const catalog = card.catalog && !card.catalog.stale ? card.catalog : null;
+  const profileForm = (
+    <BenefitProfileForm
+      key={`${card.accountId}:${card.catalog?.productId}:${card.trackingStart}`}
+      card={card}
+      products={products}
+    />
+  );
   return (
     <div className="space-y-6">
+      {catalog ? (
+        <details>
+          <summary className="cursor-pointer text-sm break-words">
+            卡产品：{catalog.issuer} · {catalog.productName}（更改）
+          </summary>
+          <div className="mt-3">{profileForm}</div>
+        </details>
+      ) : (
+        profileForm
+      )}
       <div>
         <p className="mb-2 text-xs text-muted-foreground">{year} 年合计</p>
         <MoneyAmount value={card.annual} currency={card.currency} large />
       </div>
+      {catalog ? <BenefitProgressSection catalog={catalog} accountId={card.accountId} /> : null}
+      {card.catalog ? <h3 className="font-medium">其他权益</h3> : null}
       {card.byName.length ? (
         <ul aria-label="按权益类型汇总" className="space-y-3 text-sm">
           {card.byName.map((credit) => (
@@ -48,6 +78,7 @@ export function BenefitDetails({ card, year }: { card: Data["cards"][number]; ye
       >
         查看这张卡的全部流水 →
       </Link>
+      {catalog ? <BenefitCatalogFooter catalog={catalog} /> : null}
     </div>
   );
 }
@@ -79,6 +110,7 @@ export function BenefitOverview({ data }: { data: Data }) {
           const subline = [card.institution, card.last4 ? `•••• ${card.last4}` : null]
             .filter(Boolean)
             .join(" · ");
+          const catalog = card.catalog && !card.catalog.stale ? card.catalog : null;
           return (
             <button
               type="button"
@@ -98,7 +130,14 @@ export function BenefitOverview({ data }: { data: Data }) {
                 </span>
               ) : null}
               <span className="mt-3 block">
-                <MoneyAmount value={card.annual} currency={card.currency} />
+                {catalog && !money(catalog.annual.cap).isZero() ? (
+                  <span className="text-sm leading-6">
+                    已报销 <InlineMoney value={catalog.annual.used} currency={catalog.currency} /> /{" "}
+                    <InlineMoney value={catalog.annual.cap} currency={catalog.currency} />
+                  </span>
+                ) : (
+                  <MoneyAmount value={card.annual} currency={card.currency} />
+                )}
               </span>
               <span className="mt-1 block text-[0.625rem] text-muted-foreground">
                 近 12 月 <InlineMoney value={card.rolling} currency={card.currency} />
@@ -115,7 +154,7 @@ export function BenefitOverview({ data }: { data: Data }) {
           if (!open) setDetailId(null);
         }}
       >
-        {detail ? <BenefitDetails card={detail} year={data.year} /> : null}
+        {detail ? <BenefitDetails card={detail} year={data.year} products={data.products} /> : null}
       </FormSheet>
     </section>
   );

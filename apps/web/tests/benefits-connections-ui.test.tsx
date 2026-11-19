@@ -67,10 +67,17 @@ const data: ComponentProps<typeof BenefitOverview>["data"] = {
   asOf: "2026-10-24",
   year: "2026",
   since: "2025-10-24",
+  products: [],
+  catalogVersion: "synthetic",
   years: ["2026", "2025"],
   cards: [
     {
       accountId: "synthetic-card",
+      catalog: null,
+      trackingStart: null,
+      suggestedProductIds: [],
+      openedOn: null,
+      statementDay: null,
       name: "Demo Card",
       institution: "Example Bank",
       last4: "1234",

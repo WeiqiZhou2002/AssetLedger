@@ -1,9 +1,12 @@
 import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
-import { accounts, institutions, journalEntries, postings } from "@/db/schema";
+import { accounts, cardBenefitProfiles, institutions, journalEntries, postings } from "@/db/schema";
 import type { AppDb } from "@/db/types";
-import { money } from "@/lib/money";
+import { money, sumMoney } from "@/lib/money";
 import { benefitFamilies, isMerchantOfferRefund } from "./config";
 import { normalizedCreditName } from "./credit-name";
+import { catalog as defaultCatalog, engineProduct, type Catalog } from "./catalog";
+import { suggestProducts } from "./catalog/suggest";
+import { benefitProgress } from "./progress";
 
 async function benefitRecords(db: AppDb, ownerId: string) {
   const rows = await db
@@ -42,8 +45,14 @@ async function benefitRecords(db: AppDb, ownerId: string) {
       }),
   );
 }
-export async function benefitOverview(db: AppDb, ownerId: string, asOf: string, year = asOf.slice(0, 4)) {
-  const [rows, accountRows] = await Promise.all([
+export async function benefitOverview(
+  db: AppDb,
+  ownerId: string,
+  asOf: string,
+  year = asOf.slice(0, 4),
+  catalog: Catalog = defaultCatalog,
+) {
+  const [rows, accountRows, profiles] = await Promise.all([
     benefitRecords(db, ownerId),
     db
       .select({
@@ -53,6 +62,8 @@ export async function benefitOverview(db: AppDb, ownerId: string, asOf: string, 
         institution: institutions.name,
         last4: accounts.last4,
         isActive: accounts.isActive,
+        openedOn: accounts.openedOn,
+        statementDay: accounts.statementDay,
       })
       .from(accounts)
       .leftJoin(
@@ -67,6 +78,7 @@ export async function benefitOverview(db: AppDb, ownerId: string, asOf: string, 
         ),
       )
       .orderBy(accounts.name, accounts.id),
+    db.select().from(cardBenefitProfiles).where(eq(cardBenefitProfiles.ownerId, ownerId)),
   ]);
   // Last 12 months is (same calendar day last year, asOf]; clamp leap-day to February's end.
   const previousYear = Number(asOf.slice(0, 4)) - 1;
@@ -74,12 +86,14 @@ export async function benefitOverview(db: AppDb, ownerId: string, asOf: string, 
   const since = `${previousYear}-${priorDay}`;
   const cards = accountRows
     .filter((card) => card.isActive || rows.some((row) => row.accountId === card.accountId))
-    .map(({ accountId, name, currency, institution, last4 }) => ({
+    .map(({ accountId, name, currency, institution, last4, openedOn, statementDay }) => ({
       accountId,
       name,
       currency,
       institution,
       last4,
+      openedOn,
+      statementDay,
     }));
   const windows = (entry: (typeof rows)[number]) => {
     const date = entry.date ?? entry.eventDate;
@@ -91,6 +105,10 @@ export async function benefitOverview(db: AppDb, ownerId: string, asOf: string, 
     asOf,
     year,
     since,
+    catalogVersion: catalog.catalogVersion,
+    products: catalog.cards
+      .map(({ id, name, issuer, audience, availability }) => ({ id, name, issuer, audience, availability }))
+      .sort((a, b) => a.issuer.localeCompare(b.issuer) || a.name.localeCompare(b.name)),
     years: [
       ...new Set([asOf.slice(0, 4), year, ...rows.map((row) => (row.date ?? row.eventDate).slice(0, 4))]),
     ]
@@ -99,6 +117,62 @@ export async function benefitOverview(db: AppDb, ownerId: string, asOf: string, 
     cards: cards.map((card) => {
       const entries = rows.filter((row) => row.accountId === card.accountId);
       const annual = entries.filter((row) => windows(row).annual);
+      const profile = profiles.find((profile) => profile.accountId === card.accountId);
+      const product = profile
+        ? catalog.cards.find((product) => product.id === profile.catalogProductId)
+        : undefined;
+      const progress = product
+        ? benefitProgress({
+            catalog: engineProduct(product),
+            account: {
+              currency: card.currency,
+              product_id: product.id,
+              anniversary: card.openedOn,
+              statement_close_day: card.statementDay,
+              tracking_start: profile?.trackingStart ?? null,
+            },
+            overrides: [],
+            entries: entries
+              .filter((row) => (row.date ?? row.eventDate) <= asOf)
+              .map((row) => ({
+                id: row.id,
+                date: row.date ?? row.eventDate,
+                amount: row.amount,
+                currency: row.currency,
+                description: row.description,
+                merchant: row.merchant,
+                family: row.family,
+              })),
+            as_of: asOf,
+            view_year: Number(year),
+          })
+        : null;
+      const unmatched = progress ? new Set(progress.unmatched.map((entry) => entry.entry)) : null;
+      const otherEntries = unmatched ? entries.filter((entry) => unmatched.has(entry.id)) : entries;
+      const trackedYears =
+        progress?.instances.flatMap((instance) =>
+          instance.status === "ok" && "year" in instance ? [instance.year] : [],
+        ) ?? [];
+      const catalogDetails =
+        product && progress
+          ? {
+              productId: product.id,
+              productName: product.name,
+              issuer: product.issuer,
+              currency: product.currency,
+              coverage: product.coverage,
+              catalogVersion: catalog.catalogVersion,
+              sources: product.sources,
+              instances: progress.instances,
+              informational: progress.informational,
+              annual: {
+                used: sumMoney(trackedYears.map((year) => year.used)).toFixed(4),
+                cap: sumMoney(trackedYears.map((year) => year.cap)).toFixed(4),
+              },
+            }
+          : profile
+            ? { productId: profile.catalogProductId, stale: true as const }
+            : null;
       const names = new Map<
         string,
         {
@@ -109,7 +183,7 @@ export async function benefitOverview(db: AppDb, ownerId: string, asOf: string, 
           entries: { id: string; date: string; description: string; amount: string }[];
         }
       >();
-      for (const row of annual) {
+      for (const row of otherEntries.filter((row) => windows(row).annual)) {
         const name = normalizedCreditName(row.description, row.merchant);
         const date = row.date ?? row.eventDate;
         const previous = names.get(name);
@@ -133,6 +207,12 @@ export async function benefitOverview(db: AppDb, ownerId: string, asOf: string, 
       }
       return {
         ...card,
+        catalog: catalogDetails,
+        trackingStart: profile?.trackingStart ?? null,
+        suggestedProductIds: suggestProducts(
+          { institution: card.institution, accountName: card.name },
+          catalog,
+        ),
         annual: sum(annual),
         rolling: sum(entries.filter((row) => windows(row).rolling)),
         byName: [...names.values()]
@@ -142,7 +222,7 @@ export async function benefitOverview(db: AppDb, ownerId: string, asOf: string, 
             entries: group.entries.sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id)),
           })),
         families: benefitFamilies.flatMap((family) => {
-          const matching = entries.filter(
+          const matching = otherEntries.filter(
             (row) => row.family === family && (windows(row).annual || windows(row).rolling),
           );
           return matching.length

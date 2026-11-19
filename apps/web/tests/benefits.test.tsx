@@ -869,6 +869,11 @@ it("GET benefits returns the page summary, defaults to the owner's local year, a
         "rolling",
         "byName",
         "families",
+        "catalog",
+        "trackingStart",
+        "suggestedProductIds",
+        "openedOn",
+        "statementDay",
       ].sort(),
     );
     expect(data.cards[0].byName).toMatchObject([

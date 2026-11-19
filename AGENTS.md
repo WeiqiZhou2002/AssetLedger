@@ -95,6 +95,9 @@ docs/decisions.md          current product and engineering decisions
 - Benefit credits are refunds with a benefit family. Use the first available configured expense category
   or 其他支出. Never search for or create purchase links; keep historical links without displaying them.
   Merchant Offers are ordinary refunds, excluded from benefits and protected from transfer matching.
+- Benefit progress reads the vendored CardFacts credits feed (pinned version and hash) and is read-only
+  over confirmed benefit refunds: it never changes postings, categories, families or links, and never
+  enters income, spending or net worth.
 - Rewards accounts are owner-managed; CPP valuation never enters net worth or spending.
 - Snapshots UI, reconciliation and Excel migration are removed product features. Internal observations
   and compatibility types must not be used to reintroduce their UI or APIs.

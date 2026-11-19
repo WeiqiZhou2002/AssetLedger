@@ -216,6 +216,22 @@ export const accounts = pgTable(
     ),
   ],
 );
+export const cardBenefitProfiles = pgTable(
+  "card_benefit_profiles",
+  {
+    ...owned(),
+    accountId: uuid("account_id").notNull(),
+    catalogProductId: text("catalog_product_id").notNull(),
+    trackingStart: date("tracking_start"),
+  },
+  (t) => [
+    unique("card_benefit_profiles_account_unique").on(t.ownerId, t.accountId),
+    foreignKey({
+      columns: [t.ownerId, t.accountId],
+      foreignColumns: [accounts.ownerId, accounts.id],
+    }),
+  ],
+);
 export const accountCardSecrets = pgTable(
   "account_card_secrets",
   {
