@@ -6,7 +6,14 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createTestDb } from "./helpers/db";
 import { ledgerFixture } from "./helpers/ledger";
-import { users, sessions, statements, loyaltyEvents, cardBenefitProfiles } from "@/db/schema";
+import {
+  users,
+  sessions,
+  statements,
+  loyaltyEvents,
+  cardBenefitProfiles,
+  cardBenefitMarks,
+} from "@/db/schema";
 import { createSession } from "@/lib/auth/session";
 import { hashPassword } from "@/lib/auth/password";
 import { makeTotp } from "@/lib/auth/totp";
@@ -237,6 +244,24 @@ it("deletes every owned table and only the owner's unshared files, including pag
   await h.db.insert(cardBenefitProfiles).values([
     { ownerId: f.ownerId, accountId: f.card.id, catalogProductId: "example-voyager" },
     { ownerId: f.otherId, accountId: otherCard.id, catalogProductId: "example-other" },
+  ]);
+  await h.db.insert(cardBenefitMarks).values([
+    {
+      ownerId: f.ownerId,
+      accountId: f.card.id,
+      catalogProductId: "example-voyager",
+      creditId: "coffee",
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+    },
+    {
+      ownerId: f.otherId,
+      accountId: otherCard.id,
+      catalogProductId: "example-other",
+      creditId: "coffee",
+      periodStart: "2026-01-01",
+      periodEnd: "2026-01-31",
+    },
   ]);
   const otherBefore = await exportOwnerData(h.db, f.otherId);
   const log = vi.spyOn(console, "info").mockImplementation(() => {});

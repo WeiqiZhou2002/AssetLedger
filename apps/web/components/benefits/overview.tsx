@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { BenefitCard, BenefitData as Data } from "./types";
 import { BenefitProfileForm } from "./profile-form";
 import { BenefitCatalogFooter, BenefitProgressSection } from "./progress";
+import { Badge } from "@/components/ui/badge";
 import { money } from "@/lib/money";
 import { InlineMoney, MoneyAmount } from "@/components/money-amount";
 import { FormSheet } from "@/components/ledger/forms";
@@ -20,7 +21,7 @@ export function BenefitDetails({
   const catalog = card.catalog && !card.catalog.stale ? card.catalog : null;
   const profileForm = (
     <BenefitProfileForm
-      key={`${card.accountId}:${card.catalog?.productId}:${card.trackingStart}`}
+      key={`${card.accountId}:${card.catalog?.productId}:${card.productSource}`}
       card={card}
       products={products}
     />
@@ -30,7 +31,9 @@ export function BenefitDetails({
       {catalog ? (
         <details>
           <summary className="cursor-pointer text-sm break-words">
-            卡产品：{catalog.issuer} · {catalog.productName}（更改）
+            卡产品：{catalog.issuer} · {catalog.productName}{" "}
+            {card.productSource === "auto" ? <Badge variant="secondary">自动匹配</Badge> : null}
+            <span className="ml-2 text-xs text-muted-foreground">更改</span>
           </summary>
           <div className="mt-3">{profileForm}</div>
         </details>
@@ -41,8 +44,10 @@ export function BenefitDetails({
         <p className="mb-2 text-xs text-muted-foreground">{year} 年合计</p>
         <MoneyAmount value={card.annual} currency={card.currency} large />
       </div>
-      {catalog ? <BenefitProgressSection catalog={catalog} accountId={card.accountId} /> : null}
-      {card.catalog ? <h3 className="font-medium">其他权益</h3> : null}
+      {catalog ? (
+        <BenefitProgressSection catalog={catalog} accountId={card.accountId} asOf={card.asOf} />
+      ) : null}
+      <h3 className="font-medium">其他权益</h3>
       {card.byName.length ? (
         <ul aria-label="按权益类型汇总" className="space-y-3 text-sm">
           {card.byName.map((credit) => (

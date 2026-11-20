@@ -1,11 +1,20 @@
-import { and, desc, eq, isNull, ne, or } from "drizzle-orm";
-import { accounts, cardBenefitProfiles, institutions, journalEntries, postings } from "@/db/schema";
+import { and, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
+import {
+  accounts,
+  cardBenefitProfiles,
+  cardBenefitMarks,
+  institutions,
+  journalEntries,
+  postings,
+} from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { money, sumMoney } from "@/lib/money";
 import { benefitFamilies, isMerchantOfferRefund } from "./config";
 import { normalizedCreditName } from "./credit-name";
 import { catalog as defaultCatalog, engineProduct, type Catalog } from "./catalog";
-import { suggestProducts } from "./catalog/suggest";
+import { benefitMatchNames, matchProduct, rankProducts } from "./catalog/match-product";
+import { effectiveBenefitProduct, linkedBenefitNames } from "./effective-product";
+import { applyBenefitMarks } from "./marks";
 import { benefitProgress } from "./progress";
 
 async function benefitRecords(db: AppDb, ownerId: string) {
@@ -52,7 +61,7 @@ export async function benefitOverview(
   year = asOf.slice(0, 4),
   catalog: Catalog = defaultCatalog,
 ) {
-  const [rows, accountRows, profiles] = await Promise.all([
+  const [rows, accountRows, profiles, linkedNames, starts, marks] = await Promise.all([
     benefitRecords(db, ownerId),
     db
       .select({
@@ -78,7 +87,33 @@ export async function benefitOverview(
         ),
       )
       .orderBy(accounts.name, accounts.id),
-    db.select().from(cardBenefitProfiles).where(eq(cardBenefitProfiles.ownerId, ownerId)),
+    db
+      .select({
+        accountId: cardBenefitProfiles.accountId,
+        catalogProductId: cardBenefitProfiles.catalogProductId,
+      })
+      .from(cardBenefitProfiles)
+      .where(eq(cardBenefitProfiles.ownerId, ownerId)),
+    linkedBenefitNames(db, ownerId),
+    db
+      .select({
+        accountId: postings.accountId,
+        start: sql<string>`min(coalesce(${journalEntries.postedDate}, ${journalEntries.eventDate}))::text`,
+      })
+      .from(postings)
+      .innerJoin(
+        journalEntries,
+        and(eq(journalEntries.id, postings.journalEntryId), eq(journalEntries.ownerId, ownerId)),
+      )
+      .where(
+        and(
+          eq(postings.ownerId, ownerId),
+          eq(journalEntries.status, "confirmed"),
+          ne(journalEntries.entryType, "opening_balance"),
+        ),
+      )
+      .groupBy(postings.accountId),
+    db.select().from(cardBenefitMarks).where(eq(cardBenefitMarks.ownerId, ownerId)),
   ]);
   // Last 12 months is (same calendar day last year, asOf]; clamp leap-day to February's end.
   const previousYear = Number(asOf.slice(0, 4)) - 1;
@@ -101,6 +136,14 @@ export async function benefitOverview(
   };
   const sum = (entries: typeof rows) =>
     entries.reduce((total, row) => total.plus(row.amount), money("0")).toFixed(4);
+  const namesByAccount = new Map<string, typeof linkedNames>();
+  for (const row of linkedNames) {
+    if (!row.accountId) continue;
+    const names = namesByAccount.get(row.accountId) ?? [];
+    names.push(row);
+    namesByAccount.set(row.accountId, names);
+  }
+  const startByAccount = new Map(starts.map((row) => [row.accountId, row.start]));
   return {
     asOf,
     year,
@@ -118,10 +161,14 @@ export async function benefitOverview(
       const entries = rows.filter((row) => row.accountId === card.accountId);
       const annual = entries.filter((row) => windows(row).annual);
       const profile = profiles.find((profile) => profile.accountId === card.accountId);
-      const product = profile
-        ? catalog.cards.find((product) => product.id === profile.catalogProductId)
-        : undefined;
-      const progress = product
+      const matchInput = {
+        institution: card.institution,
+        names: benefitMatchNames(card.name, namesByAccount.get(card.accountId) ?? []),
+      };
+      const effective = effectiveBenefitProduct({ ...matchInput, profile }, catalog);
+      const { product } = effective;
+      const autoMatch = matchProduct(matchInput, catalog);
+      const engineProgress = product
         ? benefitProgress({
             catalog: engineProduct(product),
             account: {
@@ -129,7 +176,7 @@ export async function benefitOverview(
               product_id: product.id,
               anniversary: card.openedOn,
               statement_close_day: card.statementDay,
-              tracking_start: profile?.trackingStart ?? null,
+              tracking_start: startByAccount.get(card.accountId) ?? asOf,
             },
             overrides: [],
             entries: entries
@@ -147,6 +194,18 @@ export async function benefitOverview(
             view_year: Number(year),
           })
         : null;
+      const progress =
+        engineProgress && product
+          ? {
+              ...engineProgress,
+              instances: applyBenefitMarks(
+                engineProgress.instances,
+                marks.filter((mark) => mark.accountId === card.accountId),
+                product.id,
+                asOf,
+              ),
+            }
+          : null;
       const unmatched = progress ? new Set(progress.unmatched.map((entry) => entry.entry)) : null;
       const otherEntries = unmatched ? entries.filter((entry) => unmatched.has(entry.id)) : entries;
       const trackedYears =
@@ -170,7 +229,7 @@ export async function benefitOverview(
                 cap: sumMoney(trackedYears.map((year) => year.cap)).toFixed(4),
               },
             }
-          : profile
+          : effective.stale && profile?.catalogProductId
             ? { productId: profile.catalogProductId, stale: true as const }
             : null;
       const names = new Map<
@@ -208,11 +267,10 @@ export async function benefitOverview(
       return {
         ...card,
         catalog: catalogDetails,
-        trackingStart: profile?.trackingStart ?? null,
-        suggestedProductIds: suggestProducts(
-          { institution: card.institution, accountName: card.name },
-          catalog,
-        ),
+        asOf,
+        productSource: effective.source,
+        autoProductId: autoMatch?.productId ?? null,
+        suggestedProductIds: rankProducts(matchInput, catalog),
         annual: sum(annual),
         rolling: sum(entries.filter((row) => windows(row).rolling)),
         byName: [...names.values()]

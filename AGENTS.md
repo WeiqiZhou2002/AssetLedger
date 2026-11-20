@@ -97,7 +97,9 @@ docs/decisions.md          current product and engineering decisions
   Merchant Offers are ordinary refunds, excluded from benefits and protected from transfer matching.
 - Benefit progress reads the vendored CardFacts credits feed (pinned version and hash) and is read-only
   over confirmed benefit refunds: it never changes postings, categories, families or links, and never
-  enters income, spending or net worth.
+  enters income, spending or net worth. Products auto-match account, institution and Plaid names;
+  owner product/none choices win. No date prompts: infer the first confirmed non-opening record and
+  estimate missing card-year dates over 12 months. Audited manual reimbursement marks affect display only.
 - Rewards accounts are owner-managed; CPP valuation never enters net worth or spending.
 - Snapshots UI, reconciliation and Excel migration are removed product features. Internal observations
   and compatibility types must not be used to reintroduce their UI or APIs.

@@ -113,6 +113,7 @@ it("retires empty tables and null columns while preserving all other data for ev
     before.setup_tokens = [];
     before.plaid_pending_transactions = [];
     before.card_benefit_profiles = [];
+    before.card_benefit_marks = [];
     await h.applyMigrations();
     expect(await dump(h)).toEqual(before);
     await h.applyMigrations();

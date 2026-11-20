@@ -30,6 +30,7 @@ export const ownerTables = {
   categories: schema.categories,
   bank_connection_accounts: schema.bankConnectionAccounts,
   bank_connections: schema.bankConnections,
+  card_benefit_marks: schema.cardBenefitMarks,
   card_benefit_profiles: schema.cardBenefitProfiles,
   accounts: schema.accounts,
   account_groups: schema.accountGroups,

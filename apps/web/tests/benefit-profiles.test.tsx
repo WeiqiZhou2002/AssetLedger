@@ -18,6 +18,7 @@ import { MoneyAmount } from "@/components/money-amount";
 import { BenefitDetails, BenefitOverview } from "@/components/benefits/overview";
 vi.mock("@/lib/benefits/catalog", async (original) => ({
   ...(await original<typeof import("@/lib/benefits/catalog")>()),
+  catalog: syntheticCatalog(),
   productById: (id: string) => syntheticCatalog().cards.find((card) => card.id === id),
 }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -40,7 +41,11 @@ beforeEach(async () => {
   f = await ledgerFixture(h.db);
 });
 const profile = (productId: string | null = "example-voyager", accountId = f.card.id) =>
-  setBenefitProfile(h.db, f.ownerId, { accountId, productId });
+  setBenefitProfile(
+    h.db,
+    f.ownerId,
+    productId ? { accountId, mode: "product", productId } : { accountId, mode: "auto" },
+  );
 const overview = (catalog = syntheticCatalog()) =>
   benefitOverview(h.db, f.ownerId, "2026-06-15", "2026", catalog);
 async function refund(
@@ -63,21 +68,15 @@ async function refund(
     }),
   );
 }
-it("sets, changes and clears an inactive card's profile with a narrow audit payload", async () => {
+it("sets all three modes on an inactive card with narrow audit payloads", async () => {
   await h.db.update(accounts).set({ isActive: false }).where(eq(accounts.id, f.card.id));
-  await setBenefitProfile(h.db, f.ownerId, {
-    accountId: f.card.id,
-    productId: "example-voyager",
-    trackingStart: "2026-03-01",
-  });
+  await profile();
   await profile("example-other");
-  const [row] = await h.db.select().from(cardBenefitProfiles);
-  expect(row).toMatchObject({
-    ownerId: f.ownerId,
-    accountId: f.card.id,
+  expect((await h.db.select().from(cardBenefitProfiles))[0]).toMatchObject({
     catalogProductId: "example-other",
-    trackingStart: "2026-03-01",
   });
+  await setBenefitProfile(h.db, f.ownerId, { accountId: f.card.id, mode: "none" });
+  expect((await h.db.select().from(cardBenefitProfiles))[0].catalogProductId).toBeNull();
   await profile(null);
   expect(await h.db.select().from(cardBenefitProfiles)).toEqual([]);
   const logs = await h.db
@@ -88,12 +87,42 @@ it("sets, changes and clears an inactive card's profile with a narrow audit payl
   expect(logs.map((log) => log.action)).toEqual([
     "benefit_profile.set",
     "benefit_profile.set",
-    "benefit_profile.clear",
+    "benefit_profile.none",
+    "benefit_profile.auto",
   ]);
   expect(logs.map((log) => log.changes)).toEqual([
-    { accountId: f.card.id, catalogProductId: "example-voyager", trackingStart: "2026-03-01" },
-    { accountId: f.card.id, catalogProductId: "example-other", trackingStart: "2026-03-01" },
-    { accountId: f.card.id, catalogProductId: null, trackingStart: null },
+    { accountId: f.card.id, mode: "product", catalogProductId: "example-voyager" },
+    { accountId: f.card.id, mode: "product", catalogProductId: "example-other" },
+    { accountId: f.card.id, mode: "none", catalogProductId: null },
+    { accountId: f.card.id, mode: "auto", catalogProductId: null },
+  ]);
+});
+it("does not update or audit unchanged auto, product or none choices", async () => {
+  const logs = () =>
+    h.db
+      .select()
+      .from(auditLogs)
+      .where(sql`${auditLogs.action} like 'benefit_profile.%'`)
+      .orderBy(auditLogs.createdAt);
+  await profile(null);
+  expect(await logs()).toEqual([]);
+  await profile();
+  const storedProduct = await h.db.select().from(cardBenefitProfiles);
+  await profile();
+  expect(await h.db.select().from(cardBenefitProfiles)).toEqual(storedProduct);
+  expect(await logs()).toHaveLength(1);
+  await setBenefitProfile(h.db, f.ownerId, { accountId: f.card.id, mode: "none" });
+  const storedNone = await h.db.select().from(cardBenefitProfiles);
+  await setBenefitProfile(h.db, f.ownerId, { accountId: f.card.id, mode: "none" });
+  expect(await h.db.select().from(cardBenefitProfiles)).toEqual(storedNone);
+  expect(await logs()).toHaveLength(2);
+  await profile(null);
+  await profile(null);
+  expect(await h.db.select().from(cardBenefitProfiles)).toEqual([]);
+  expect((await logs()).map((log) => log.action)).toEqual([
+    "benefit_profile.set",
+    "benefit_profile.none",
+    "benefit_profile.auto",
   ]);
 });
 it("rejects foreign, non-card and system accounts, unknown products, invalid dates and extra fields", async () => {
@@ -108,6 +137,7 @@ it("rejects foreign, non-card and system accounts, unknown products, invalid dat
   await expect(
     setBenefitProfile(h.db, f.ownerId, {
       accountId: f.card.id,
+      mode: "product",
       productId: "example-voyager",
       trackingStart: "2026-02-30",
     }),
@@ -115,6 +145,7 @@ it("rejects foreign, non-card and system accounts, unknown products, invalid dat
   await expect(
     setBenefitProfile(h.db, f.ownerId, {
       accountId: f.card.id,
+      mode: "product",
       productId: "example-voyager",
       ownerId: f.otherId,
     }),
@@ -144,20 +175,26 @@ it("keeps totals and ledger records unchanged while matched credits leave other 
   expect(card.families.flatMap((group) => group.entries)).toHaveLength(1);
   expect(card.catalog).toMatchObject({
     productId: "example-voyager",
-    annual: { used: "7.0000", cap: "120.0000" },
+    annual: { used: "7.0000", cap: "70.0000" },
     instances: [{ latest_entry: { id: matched.id } }],
   });
   expect(await h.db.select().from(journalEntries)).toEqual(ledgerBefore);
   expect(await h.db.select().from(postings)).toEqual(postingsBefore);
   expect(data.cards.find((card) => card.accountId !== f.card.id)?.catalog ?? null).toBeNull();
 });
-it("uses booking dates, requests missing account dates and retains stale profiles", async () => {
+it("uses booking dates, estimates missing account dates and retains stale profiles", async () => {
   await refund("BEANHOUSE CREDIT", "7", "2026-05-31", "2026-06-01");
   await profile();
   const catalog = syntheticCatalog();
   catalog.cards[0].credits[0].versions[0].reset_basis = "anniversary";
   expect((await overview(catalog)).cards[0].catalog).toMatchObject({
-    instances: [{ status: "needs_anniversary", entry_details: [{ date: "2026-06-01" }] }],
+    instances: [
+      {
+        status: "estimated",
+        window: { start: "2025-06-16", end: "2026-06-15", used: "7.0000", remaining: "3.0000" },
+        entry_details: [{ date: "2026-06-01" }],
+      },
+    ],
   });
   await h.db
     .update(cardBenefitProfiles)
@@ -169,6 +206,9 @@ it("uses booking dates, requests missing account dates and retains stale profile
   const staleHtml = renderToStaticMarkup(<BenefitDetails card={stale} year="2026" />);
   expect(staleHtml).toContain("已选卡产品不在当前目录中，请重新选择。");
   expect(staleHtml).toContain("<form");
+  expect(staleHtml).toContain('<option value="auto" selected="">');
+  expect(staleHtml).not.toContain("已选产品（不在目录中）");
+  expect(staleHtml).not.toContain('<option value="removed-product"');
   expect(staleHtml).not.toContain("（更改）");
 });
 it("exports profiles through the owner inventory with children before accounts", async () => {
@@ -181,7 +221,7 @@ it("exports profiles through the owner inventory with children before accounts",
   const other = await exportOwnerData(h.db, f.otherId);
   expect(other.tables.card_benefit_profiles).toEqual([]);
 });
-it("renders reimbursement status, periods, prompts, informational credits and other benefits", async () => {
+it("renders reimbursement status, periods, estimates, informational credits and other benefits", async () => {
   await profile();
   await refund();
   await refund("MYSTERY CREDIT", "2");
@@ -218,7 +258,7 @@ it("renders reimbursement status, periods, prompts, informational credits and ot
     card = data.cards[0];
   const html = renderToStaticMarkup(<BenefitDetails card={card} year={data.year} products={data.products} />);
   const productDisclosure = html.match(
-    /<details([^>]*)><summary[^>]*>卡产品：Example Bank · Voyager Card（更改）<\/summary>[\s\S]*?<form/,
+    /<details([^>]*)><summary[^>]*>卡产品：Example Bank · Voyager Card[\s\S]*?<\/summary>[\s\S]*?<form/,
   );
   expect(productDisclosure).not.toBeNull();
   expect(productDisclosure![1]).not.toMatch(/\bopen\b/);
@@ -234,14 +274,13 @@ it("renders reimbursement status, periods, prompts, informational credits and ot
     "单笔消费满",
     "至少 2 晚",
     "连续 3 个月",
-    "请在账户设置中填写开户日期",
+    "按卡年度重置，暂按近 12 个月估算",
     "条款待核实，暂不计算。",
     "该权益的周期规则暂不支持",
     "不在账单上入账",
     "其他权益",
     "CardFacts synthetic-v1（草案数据）",
     'rel="noreferrer"',
-    `/accounts#account-${f.card.id}`,
     "MYSTERY CREDIT",
     "/activity?entryId=",
   ])
@@ -251,7 +290,9 @@ it("renders reimbursement status, periods, prompts, informational credits and ot
   const updated = await overview(catalog);
   expect(
     renderToStaticMarkup(<BenefitDetails card={updated.cards[0]} year="2026" products={updated.products} />),
-  ).toContain("请在账户设置中填写账单日");
+  ).toContain("按卡年度重置，暂按近 12 个月估算");
+  expect(html).not.toContain('type="date"');
+  expect(html).not.toContain("/accounts#account-");
 });
 it("keeps the product form expanded without a selected product", async () => {
   const data = await overview();
@@ -289,7 +330,7 @@ it.each(["unsupported", "to_verify", "multi_year"] as const)(
   },
 );
 it("requires authentication and same-origin PUT, and accepts a valid profile update", async () => {
-  const body = { accountId: f.card.id, productId: "example-voyager" };
+  const body = { accountId: f.card.id, mode: "product", productId: "example-voyager" };
   const request = (cookie?: string, origin = "http://localhost:3000") =>
     new NextRequest("http://localhost:3000/api/benefits/profile", {
       method: "PUT",

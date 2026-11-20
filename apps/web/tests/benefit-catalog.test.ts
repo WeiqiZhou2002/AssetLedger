@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { expect, it } from "vitest";
 import { catalog, engineProduct, parseCatalog } from "@/lib/benefits/catalog";
-import { suggestProducts } from "@/lib/benefits/catalog/suggest";
 import { benefitProgress } from "@/lib/benefits/progress";
 import type { ProgressInput } from "@/lib/benefits/progress";
 import lock from "@/lib/benefits/catalog/credits.lock.json";
@@ -28,20 +27,6 @@ it("parses a synthetic feed with null coverage", () => {
     data: { contract: { name: "credit-progress", format_version: 1 }, cards },
   });
   expect(parsed.cards[0].coverage).toBeNull();
-});
-it("matches whole issuer words, excluding Citi for Citizens Bank", () => {
-  const base = syntheticCatalog().cards[0];
-  const catalog = {
-    catalogVersion: "synthetic",
-    cards: [
-      { ...base, id: "synthetic-citi", issuer: "Citi", aliases: [] },
-      { ...base, id: "synthetic-chase", issuer: "Chase", aliases: [] },
-    ],
-  };
-  expect(suggestProducts({ institution: "Citizens Bank", accountName: "Demo Card" }, catalog)).toEqual([]);
-  expect(suggestProducts({ institution: "Chase Bank", accountName: "Demo Card" }, catalog)).toEqual([
-    "synthetic-chase",
-  ]);
 });
 function input(): ProgressInput {
   return structuredClone(vectors.data.vectors[0]);
@@ -110,21 +95,6 @@ it("keeps ended credits in their historical year and filters informational versi
   expect(result.instances[0]).toMatchObject({ status: "ok", year: { cap: "60.0000" } });
   expect(result.informational).toEqual([]);
 });
-it("suggests aliases first and issuer matches second without choosing a product", () => {
-  const base = syntheticCatalog().cards[0];
-  const cards = [
-    { ...base, id: "issuer", issuer: "Example Bank", aliases: [] },
-    { ...base, id: "alias", issuer: "Other Bank", aliases: ["VOYAGER PLUS"] },
-    { ...base, id: "unrelated", issuer: "Third Bank", aliases: ["VOYAGERPLUS"] },
-  ];
-  expect(
-    suggestProducts(
-      { institution: "Example Bank US", accountName: "ＶＯＹＡＧＥＲ-ＰＬＵＳ" },
-      { cards, catalogVersion: "synthetic" },
-    ),
-  ).toEqual(["alias", "issuer"]);
-});
-
 it.each(["to_verify", "unsupported"])(
   "never allocates entries from an old %s version into known terms",
   (kind) => {

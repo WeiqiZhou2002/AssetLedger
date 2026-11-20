@@ -74,7 +74,9 @@ const data: ComponentProps<typeof BenefitOverview>["data"] = {
     {
       accountId: "synthetic-card",
       catalog: null,
-      trackingStart: null,
+      asOf: "2026-06-15",
+      productSource: null,
+      autoProductId: null,
       suggestedProductIds: [],
       openedOn: null,
       statementDay: null,

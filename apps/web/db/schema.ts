@@ -221,7 +221,8 @@ export const cardBenefitProfiles = pgTable(
   {
     ...owned(),
     accountId: uuid("account_id").notNull(),
-    catalogProductId: text("catalog_product_id").notNull(),
+    catalogProductId: text("catalog_product_id"),
+    // Retired: no longer read or written; retained until a guarded retirement migration.
     trackingStart: date("tracking_start"),
   },
   (t) => [
@@ -230,6 +231,28 @@ export const cardBenefitProfiles = pgTable(
       columns: [t.ownerId, t.accountId],
       foreignColumns: [accounts.ownerId, accounts.id],
     }),
+  ],
+);
+export const cardBenefitMarks = pgTable(
+  "card_benefit_marks",
+  {
+    ...owned(),
+    accountId: uuid("account_id").notNull(),
+    catalogProductId: text("catalog_product_id").notNull(),
+    creditId: text("credit_id").notNull(),
+    periodStart: date("period_start").notNull(),
+    periodEnd: date("period_end").notNull(),
+  },
+  (t) => [
+    unique("card_benefit_marks_period_unique").on(
+      t.ownerId,
+      t.accountId,
+      t.catalogProductId,
+      t.creditId,
+      t.periodStart,
+    ),
+    foreignKey({ columns: [t.ownerId, t.accountId], foreignColumns: [accounts.ownerId, accounts.id] }),
+    check("card_benefit_marks_period_check", sql`${t.periodEnd} >= ${t.periodStart}`),
   ],
 );
 export const accountCardSecrets = pgTable(

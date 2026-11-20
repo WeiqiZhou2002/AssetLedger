@@ -21,7 +21,7 @@ export default async function Page({
       <PageHeading
         eyebrow="CARD BENEFITS"
         title="卡权益返还"
-        description="记录每张卡的权益返还，按年份查看使用情况。"
+        description="查看每张卡的报销项目与状态，按年份了解权益使用情况。"
       />
       <BenefitOverview data={data} />
     </>

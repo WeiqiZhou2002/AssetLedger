@@ -1,6 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Field, FormError, SelectField, api, textField, useLedgerMutation } from "@/components/ledger/forms";
+import { FormError, SelectField, api, textField, useLedgerMutation } from "@/components/ledger/forms";
 import type { BenefitCard, BenefitData } from "./types";
 export function BenefitProfileForm({
   card,
@@ -19,8 +19,11 @@ export function BenefitProfileForm({
     await mutation.run(async () => {
       await api("/api/benefits/profile", "PUT", {
         accountId: card.accountId,
-        productId: textField(data, "productId") || null,
-        trackingStart: textField(data, "trackingStart") || null,
+        ...(textField(data, "productId") === "auto"
+          ? { mode: "auto" }
+          : textField(data, "productId") === "none"
+            ? { mode: "none" }
+            : { mode: "product", productId: textField(data, "productId") }),
       });
     });
   }
@@ -29,12 +32,20 @@ export function BenefitProfileForm({
       <SelectField
         label="卡产品"
         name="productId"
-        defaultValue={stale ? "" : (card.catalog?.productId ?? "")}
+        defaultValue={
+          card.productSource === "none"
+            ? "none"
+            : card.productSource === "manual" && !stale
+              ? (card.catalog?.productId ?? "auto")
+              : "auto"
+        }
         disabled={mutation.pending}
       >
-        <option value="">未选择</option>
+        <option value="auto">
+          自动匹配（{products.find((product) => product.id === card.autoProductId)?.name ?? "未找到"}）
+        </option>
         {suggested.length ? (
-          <optgroup label="建议产品（请确认）">
+          <optgroup label="建议产品">
             {suggested.map((product) => (
               <option key={product.id} value={product.id}>
                 {product.issuer} · {product.name}
@@ -53,22 +64,13 @@ export function BenefitProfileForm({
               ))}
           </optgroup>
         ))}
+        <option value="none">不在目录中，不跟踪</option>
       </SelectField>
       {stale ? (
         <p role="status" className="text-sm text-destructive">
           已选卡产品不在当前目录中，请重新选择。
         </p>
       ) : null}
-      <p className="text-xs leading-6 text-muted-foreground">
-        选择后按发卡机构公开条款计算报销进度。建议产品需确认后保存。
-      </p>
-      <Field
-        label="跟踪起始日（可选）"
-        type="date"
-        name="trackingStart"
-        defaultValue={card.trackingStart ?? ""}
-        disabled={mutation.pending}
-      />
       <FormError error={mutation.error} />
       <Button type="submit" size="sm" disabled={mutation.pending}>
         {mutation.pending ? "保存中…" : "保存卡产品"}
