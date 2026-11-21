@@ -1,9 +1,11 @@
 import { expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { BenefitProgressSection } from "@/components/benefits/progress";
+import { InlineMoney } from "@/components/money-amount";
 import { benefitProgress } from "@/lib/benefits/progress";
 import { applyBenefitMarks, type BenefitMark } from "@/lib/benefits/marks";
-import { sumMoney } from "@/lib/money";
+import { benefitTotals } from "@/lib/benefits/totals";
+import { matchBenefitCredits } from "@/lib/benefits/credit-match";
 import { engineProduct } from "@/lib/benefits/catalog";
 import type { ProgressInput } from "@/lib/benefits/progress";
 import { syntheticCatalog } from "./helpers/benefit-catalog";
@@ -29,9 +31,6 @@ function render(input: ProgressInput, marks: BenefitMark[] = []) {
   const card = syntheticCatalog().cards[0],
     engine = benefitProgress(input),
     progress = { ...engine, instances: applyBenefitMarks(engine.instances, marks, card.id, input.as_of) };
-  const years = progress.instances.flatMap((instance) =>
-    instance.status === "ok" && "year" in instance ? [instance.year] : [],
-  );
   return renderToStaticMarkup(
     <BenefitProgressSection
       accountId="synthetic-card"
@@ -44,14 +43,20 @@ function render(input: ProgressInput, marks: BenefitMark[] = []) {
         coverage: card.coverage,
         catalogVersion: "synthetic",
         sources: card.sources,
-        annual: {
-          used: sumMoney(years.map((year) => year.used)).toFixed(4),
-          cap: sumMoney(years.map((year) => year.cap)).toFixed(4),
-        },
+        annual: benefitTotals(progress.instances),
+        credits: input.catalog.credits.map(({ id, name }) => ({ id, name })),
+        entryAssignments: matchBenefitCredits(input).matches,
         ...progress,
       }}
     />,
   );
+}
+function disclosure(html: string, label: string) {
+  const block = (html.match(/<details\b[\s\S]*?<\/details>/g) ?? []).find((block) =>
+    block.match(/<summary\b[^>]*>([\s\S]*?)<\/summary>/)?.[1].startsWith(label),
+  );
+  expect(block).toBeDefined();
+  return block!;
 }
 it("renders full, partial, unused, upcoming and over-cap states from engine output", () => {
   for (const [amount, label] of [
@@ -200,4 +205,112 @@ it("describes an estimated rolling window without a deadline", () => {
   expect(html).toContain("剩余");
   expect(html).not.toContain("本期已报销");
   expect(html).not.toContain("截止");
+});
+
+it("keeps expired periods and removable past marks in separate disclosures with one checkbox per period", () => {
+  const input = setup();
+  const html = render(input, [
+    {
+      catalogProductId: input.catalog.id,
+      creditId: "coffee",
+      periodStart: "2026-02-01",
+      periodEnd: "2026-02-28",
+    },
+  ]);
+  const details = disclosure(html, "查看各周期明细");
+  expect(details).not.toContain('type="checkbox"');
+  expect(details).toContain("查看各周期明细（2026-01-01 至 2026-12-31）");
+  const expired = disclosure(html, "已过期未用");
+  expect(expired).toContain("已过期未用 · 4 个周期 · 共 ");
+  expect(expired).toContain(renderToStaticMarkup(<InlineMoney value="40.0000" currency="USD" />));
+  expect(expired.match(/type="checkbox"/g)).toHaveLength(4);
+  const marked = disclosure(html, "已手动标记");
+  expect(marked).toContain("已手动标记 · 1 个周期");
+  expect(marked.match(/type="checkbox"/g)).toHaveLength(1);
+  expect(html.match(/type="checkbox"/g)).toHaveLength(6);
+  expect(html.match(/checked=""/g)).toHaveLength(1);
+  expect(html).toContain("2026 年额度");
+  expect(html).toContain("还可报销");
+});
+it.each([
+  ["2026-02-15", 1, "7.5000", true],
+  ["2026-04-15", 3, "27.5000", true],
+  ["2026-05-15", 4, "37.5000", false],
+  ["2026-10-15", 9, "87.5000", false],
+] as const)("summarizes expired periods on %s and expands only short lists", (asOf, count, total, open) => {
+  const input = setup();
+  input.as_of = asOf;
+  input.entries = [
+    { id: "partial", date: "2026-01-02", amount: "2.50", currency: "USD", description: "BEANHOUSE CREDIT" },
+  ];
+  const html = render(input);
+  const expired = disclosure(html, "已过期未用");
+  expect(/<details\b[^>]*\bopen=""/.test(expired)).toBe(open);
+  const summary = expired.match(/<summary\b[^>]*>[\s\S]*?<\/summary>/)![0];
+  expect(summary).toContain("text-destructive");
+  expect(summary).toContain(`已过期未用 · ${count} 个周期 · 共 `);
+  expect(summary).toContain(renderToStaticMarkup(<InlineMoney value={total} currency="USD" />));
+  const rows = expired.match(/<li\b[\s\S]*?<\/li>/g) ?? [];
+  expect(rows).toHaveLength(count);
+  for (const row of rows) expect(row.match(/type="checkbox"/g)).toHaveLength(1);
+  expect(html.match(/type="checkbox"/g)).toHaveLength(count + 1);
+});
+it.each([
+  ["2026-02-15", 1, true],
+  ["2026-04-15", 3, true],
+  ["2026-05-15", 4, false],
+  ["2026-10-15", 9, false],
+] as const)("summarizes removable past marks on %s and expands only short lists", (asOf, count, open) => {
+  const input = setup();
+  input.as_of = asOf;
+  const instance = benefitProgress(input).instances[0];
+  if (instance.status !== "ok" || !("year" in instance)) throw new Error("Expected periodic credit");
+  const marks = instance.periods
+    .filter((period) => period.end < asOf)
+    .map((period) => ({
+      catalogProductId: input.catalog.id,
+      creditId: instance.credit,
+      periodStart: period.start,
+      periodEnd: period.end,
+    }));
+  const html = render(input, marks);
+  const marked = disclosure(html, "已手动标记");
+  expect(/<details\b[^>]*\bopen=""/.test(marked)).toBe(open);
+  expect(marked).toContain(`已手动标记 · ${count} 个周期</summary>`);
+  const rows = marked.match(/<li\b[\s\S]*?<\/li>/g) ?? [];
+  expect(rows).toHaveLength(count);
+  for (const row of rows) {
+    expect(row.match(/type="checkbox"/g)).toHaveLength(1);
+    expect(row).toContain('checked=""');
+  }
+  expect(html).not.toMatch(/<summary\b[^>]*>已过期未用/);
+  expect(html.match(/type="checkbox"/g)).toHaveLength(count + 1);
+});
+it("labels unqualified conditional credits without showing expired-unused amounts or past checkboxes", () => {
+  const input = setup();
+  input.catalog.credits[0].versions[0].conditions = {
+    minimum_spend: { amount: "70", period: "benefit_period" },
+  };
+  const html = render(input);
+  expect(html).toContain("需满足条件</span>");
+  expect(html).toContain("满足条件后可用");
+  expect(html).not.toContain("已过期未用");
+  expect(html.match(/type="checkbox"/g)).toHaveLength(1);
+});
+it("offers a credit assignment on each reimbursement entry", () => {
+  const input = setup();
+  input.entries = [
+    {
+      id: "synthetic-entry",
+      date: "2026-06-01",
+      amount: "3",
+      currency: "USD",
+      description: "BEANHOUSE CREDIT",
+    },
+  ];
+  const html = render(input);
+  expect(html).toContain('aria-label="归属报销项目"');
+  expect(html).toContain("自动匹配（Coffee Credit）");
+  expect(html).toContain('value="credit:coffee"');
+  expect(html).toContain("不计入报销项目");
 });

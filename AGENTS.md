@@ -99,7 +99,9 @@ docs/decisions.md          current product and engineering decisions
   over confirmed benefit refunds: it never changes postings, categories, families or links, and never
   enters income, spending or net worth. Products auto-match account, institution and Plaid names;
   owner product/none choices win. No date prompts: infer the first confirmed non-opening record and
-  estimate missing card-year dates over 12 months. Audited manual reimbursement marks affect display only.
+  estimate missing card-year dates over 12 months. Audited manual reimbursement marks and owner credit
+  assignments affect display only. The Asset Ledger fuzzy credit fallback leaves the shared CardFacts
+  engine unchanged.
 - Rewards accounts are owner-managed; CPP valuation never enters net worth or spending.
 - Snapshots UI, reconciliation and Excel migration are removed product features. Internal observations
   and compatibility types must not be used to reintroduce their UI or APIs.

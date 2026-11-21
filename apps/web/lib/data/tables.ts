@@ -25,6 +25,7 @@ export const ownerTables = {
   balance_snapshots: schema.balanceSnapshots,
   fx_rates: schema.fxRates,
   postings: schema.postings,
+  card_benefit_assignments: schema.cardBenefitAssignments,
   journal_entries: schema.journalEntries,
   purchase_groups: schema.purchaseGroups,
   categories: schema.categories,

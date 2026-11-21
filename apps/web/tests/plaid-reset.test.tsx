@@ -949,3 +949,39 @@ it("API enforces auth, origin, typed confirmation and recovery ownership; UI exp
   vi.stubEnv("PLAID_ENABLED", "false");
   expect((await resetRoute.POST(await request(f.ownerId, input(c.id)))).status).toBe(404);
 });
+
+it("cascades benefit assignments only for entries deleted by a Plaid reset", async () => {
+  const { setBenefitProfile } = await import("@/lib/benefits/profile");
+  const { setBenefitAssignment } = await import("@/lib/benefits/assignment-service");
+  const { benefitInput } = await import("@/lib/benefits/input");
+  const c = await connect(f.card.id);
+  await setBenefitProfile(h.db, f.ownerId, {
+    accountId: f.card.id,
+    mode: "product",
+    productId: "us-amex-business-platinum",
+  });
+  await sync(c, [transaction(c, "synthetic-benefit", "-23", "SYNTHETIC DELL CREDIT")]);
+  const synced = (await entries()).find((entry) => entry.benefitCredit)!;
+  expect(synced).toBeDefined();
+  const manual = await createEntry(
+    h.db,
+    f.ownerId,
+    await benefitInput(h.db, f.ownerId, {
+      accountId: f.card.id,
+      amount: "9",
+      currency: "USD",
+      eventDate: "2026-10-15",
+      description: "SYNTHETIC CREDIT",
+      family: "generic",
+    }),
+  );
+  for (const entry of [synced, manual])
+    await setBenefitAssignment(h.db, f.ownerId, {
+      entryId: entry.id,
+      productId: "us-amex-business-platinum",
+      mode: "credit",
+      creditId: "dell",
+    });
+  await executeReset(h.db, f.ownerId, config, input(c.id), now);
+  expect((await h.db.select().from(s.cardBenefitAssignments)).map((row) => row.entryId)).toEqual([manual.id]);
+});

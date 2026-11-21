@@ -3,19 +3,23 @@ import {
   accounts,
   cardBenefitProfiles,
   cardBenefitMarks,
+  cardBenefitAssignments,
   institutions,
   journalEntries,
   postings,
 } from "@/db/schema";
 import type { AppDb } from "@/db/types";
-import { money, sumMoney } from "@/lib/money";
+import { money } from "@/lib/money";
 import { benefitFamilies, isMerchantOfferRefund } from "./config";
 import { normalizedCreditName } from "./credit-name";
 import { catalog as defaultCatalog, engineProduct, type Catalog } from "./catalog";
 import { benefitMatchNames, matchProduct, rankProducts } from "./catalog/match-product";
 import { effectiveBenefitProduct, linkedBenefitNames } from "./effective-product";
 import { applyBenefitMarks } from "./marks";
-import { benefitProgress } from "./progress";
+import { benefitProgress, type ProgressInput } from "./progress";
+import { matchBenefitCredits } from "./credit-match";
+import { benefitLineage, inheritedAssignments } from "./assignments";
+import { benefitTotals } from "./totals";
 
 async function benefitRecords(db: AppDb, ownerId: string) {
   const rows = await db
@@ -61,7 +65,7 @@ export async function benefitOverview(
   year = asOf.slice(0, 4),
   catalog: Catalog = defaultCatalog,
 ) {
-  const [rows, accountRows, profiles, linkedNames, starts, marks] = await Promise.all([
+  const [rows, accountRows, profiles, linkedNames, starts, marks, assignments] = await Promise.all([
     benefitRecords(db, ownerId),
     db
       .select({
@@ -114,7 +118,15 @@ export async function benefitOverview(
       )
       .groupBy(postings.accountId),
     db.select().from(cardBenefitMarks).where(eq(cardBenefitMarks.ownerId, ownerId)),
+    db.select().from(cardBenefitAssignments).where(eq(cardBenefitAssignments.ownerId, ownerId)),
   ]);
+  const lineage = assignments.length
+    ? await benefitLineage(
+        db,
+        ownerId,
+        rows.map((row) => row.id),
+      )
+    : new Map<string, string | null>();
   // Last 12 months is (same calendar day last year, asOf]; clamp leap-day to February's end.
   const previousYear = Number(asOf.slice(0, 4)) - 1;
   const priorDay = asOf.slice(5) === "02-29" ? "02-28" : asOf.slice(5);
@@ -168,8 +180,8 @@ export async function benefitOverview(
       const effective = effectiveBenefitProduct({ ...matchInput, profile }, catalog);
       const { product } = effective;
       const autoMatch = matchProduct(matchInput, catalog);
-      const engineProgress = product
-        ? benefitProgress({
+      const engineInput: ProgressInput | null = product
+        ? {
             catalog: engineProduct(product),
             account: {
               currency: card.currency,
@@ -192,8 +204,29 @@ export async function benefitOverview(
               })),
             as_of: asOf,
             view_year: Number(year),
-          })
+          }
         : null;
+      const creditMatch =
+        engineInput && product
+          ? matchBenefitCredits(
+              engineInput,
+              inheritedAssignments(
+                entries.map((entry) => entry.id),
+                lineage,
+                assignments.filter((assignment) => assignment.catalogProductId === product.id),
+              ),
+            )
+          : null;
+      const engineProgress =
+        engineInput && creditMatch ? benefitProgress({ ...engineInput, entries: creditMatch.entries }) : null;
+      if (creditMatch && engineProgress) {
+        for (const [entryId, match] of Object.entries(creditMatch.matches)) {
+          if (!match.ownerAssigned) {
+            match.automaticCreditId = engineProgress.matches[entryId] ?? null;
+            if (match.automaticCreditId === null) match.source = null;
+          }
+        }
+      }
       const progress =
         engineProgress && product
           ? {
@@ -208,10 +241,6 @@ export async function benefitOverview(
           : null;
       const unmatched = progress ? new Set(progress.unmatched.map((entry) => entry.entry)) : null;
       const otherEntries = unmatched ? entries.filter((entry) => unmatched.has(entry.id)) : entries;
-      const trackedYears =
-        progress?.instances.flatMap((instance) =>
-          instance.status === "ok" && "year" in instance ? [instance.year] : [],
-        ) ?? [];
       const catalogDetails =
         product && progress
           ? {
@@ -224,10 +253,11 @@ export async function benefitOverview(
               sources: product.sources,
               instances: progress.instances,
               informational: progress.informational,
-              annual: {
-                used: sumMoney(trackedYears.map((year) => year.used)).toFixed(4),
-                cap: sumMoney(trackedYears.map((year) => year.cap)).toFixed(4),
-              },
+              annual: benefitTotals(progress.instances),
+              credits: product.credits
+                .filter((credit) => !credit.delivery || credit.delivery === "statement_credit")
+                .map(({ id, name }) => ({ id, name })),
+              entryAssignments: creditMatch!.matches,
             }
           : effective.stale && profile?.catalogProductId
             ? { productId: profile.catalogProductId, stale: true as const }

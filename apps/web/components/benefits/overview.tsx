@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { BenefitCard, BenefitData as Data } from "./types";
+import { BenefitAssignmentSelect } from "./assignment-select";
 import { BenefitProfileForm } from "./profile-form";
 import { BenefitCatalogFooter, BenefitProgressSection } from "./progress";
 import { Badge } from "@/components/ui/badge";
@@ -40,12 +41,47 @@ export function BenefitDetails({
       ) : (
         profileForm
       )}
-      <div>
-        <p className="mb-2 text-xs text-muted-foreground">{year} 年合计</p>
-        <MoneyAmount value={card.annual} currency={card.currency} large />
-      </div>
+      {catalog && !money(catalog.annual.cap).isZero() ? (
+        <div className="min-w-0 space-y-2">
+          <p className="text-xs text-muted-foreground">{year} 年最多可报销</p>
+          <p className="flex flex-wrap items-baseline gap-x-2 text-xl leading-relaxed font-medium">
+            <span>
+              已报销 <InlineMoney value={catalog.annual.used} currency={catalog.currency} />
+            </span>
+            <span>
+              / <InlineMoney value={catalog.annual.cap} currency={catalog.currency} />
+            </span>
+          </p>
+          <p className="text-sm leading-6">
+            <span className={money(catalog.annual.expiredUnused).gt("0") ? "text-destructive" : undefined}>
+              已过期未用 <InlineMoney value={catalog.annual.expiredUnused} currency={catalog.currency} />
+            </span>
+            {" · 还可报销 "}
+            <InlineMoney value={catalog.annual.remaining} currency={catalog.currency} />
+          </p>
+          {money(catalog.annual.conditionalCap).gt("0") ? (
+            <p className="text-xs leading-6 text-muted-foreground">
+              另有需满足条件的权益{" "}
+              <InlineMoney value={catalog.annual.conditionalCap} currency={catalog.currency} />
+              ，满足后计入
+            </p>
+          ) : null}
+          {catalog.annual.excluded.multiYear > 0 ? (
+            <p className="text-xs text-muted-foreground">多年期权益不计入年度合计</p>
+          ) : null}
+          <p className="text-xs leading-6 text-muted-foreground">
+            {year} 年全部权益返还 <InlineMoney value={card.annual} currency={card.currency} />
+            （含目录外）
+          </p>
+        </div>
+      ) : (
+        <div>
+          <p className="mb-2 text-xs text-muted-foreground">{year} 年合计</p>
+          <MoneyAmount value={card.annual} currency={card.currency} large />
+        </div>
+      )}
       {catalog ? (
-        <BenefitProgressSection catalog={catalog} accountId={card.accountId} asOf={card.asOf} />
+        <BenefitProgressSection catalog={catalog} accountId={card.accountId} asOf={card.asOf} year={year} />
       ) : null}
       <h3 className="font-medium">其他权益</h3>
       {card.byName.length ? (
@@ -62,11 +98,19 @@ export function BenefitDetails({
                 </summary>
                 <ul aria-label={`${credit.name} 流水`} className="mt-3 space-y-3 border-t pt-3 text-sm">
                   {credit.entries.map((entry) => (
-                    <li key={entry.id}>
+                    <li key={entry.id} className="min-w-0">
                       <Link className="break-words text-primary" href={`/activity?entryId=${entry.id}`}>
                         {entry.date} · {entry.description} ·{" "}
                         <InlineMoney value={entry.amount} currency={card.currency} />
                       </Link>
+                      {catalog ? (
+                        <BenefitAssignmentSelect
+                          entryId={entry.id}
+                          productId={catalog.productId}
+                          credits={catalog.credits}
+                          assignment={catalog.entryAssignments[entry.id]}
+                        />
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -144,6 +188,11 @@ export function BenefitOverview({ data }: { data: Data }) {
                   <MoneyAmount value={card.annual} currency={card.currency} />
                 )}
               </span>
+              {catalog && money(catalog.annual.expiredUnused).gt("0") ? (
+                <span className="mt-1 block text-xs text-destructive">
+                  已过期未用 <InlineMoney value={catalog.annual.expiredUnused} currency={catalog.currency} />
+                </span>
+              ) : null}
               <span className="mt-1 block text-[0.625rem] text-muted-foreground">
                 近 12 月 <InlineMoney value={card.rolling} currency={card.currency} />
               </span>

@@ -13,6 +13,8 @@ import {
   loyaltyEvents,
   cardBenefitProfiles,
   cardBenefitMarks,
+  cardBenefitAssignments,
+  journalEntries,
 } from "@/db/schema";
 import { createSession } from "@/lib/auth/session";
 import { hashPassword } from "@/lib/auth/password";
@@ -263,6 +265,14 @@ it("deletes every owned table and only the owner's unshared files, including pag
       periodEnd: "2026-01-31",
     },
   ]);
+  const [entry] = await h.db.select().from(journalEntries).where(eq(journalEntries.ownerId, f.ownerId));
+  await h.db.insert(cardBenefitAssignments).values({
+    ownerId: f.ownerId,
+    accountId: f.card.id,
+    entryId: entry.id,
+    catalogProductId: "example-voyager",
+    creditId: "coffee",
+  });
   const otherBefore = await exportOwnerData(h.db, f.otherId);
   const log = vi.spyOn(console, "info").mockImplementation(() => {});
   const response = await deletion.DELETE(

@@ -366,6 +366,24 @@ export const journalEntries = pgTable(
     foreignKey({ columns: [t.ownerId, t.refundOfEntryId], foreignColumns: [t.ownerId, t.id] }),
   ],
 );
+export const cardBenefitAssignments = pgTable(
+  "card_benefit_assignments",
+  {
+    ...owned(),
+    entryId: uuid("entry_id").notNull(),
+    accountId: uuid("account_id").notNull(),
+    catalogProductId: text("catalog_product_id").notNull(),
+    creditId: text("credit_id"),
+  },
+  (t) => [
+    unique("card_benefit_assignments_entry_product_unique").on(t.ownerId, t.entryId, t.catalogProductId),
+    foreignKey({
+      columns: [t.ownerId, t.entryId],
+      foreignColumns: [journalEntries.ownerId, journalEntries.id],
+    }).onDelete("cascade"),
+    foreignKey({ columns: [t.ownerId, t.accountId], foreignColumns: [accounts.ownerId, accounts.id] }),
+  ],
+);
 export const transferPairRejections = pgTable(
   "transfer_pair_rejections",
   {

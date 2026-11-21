@@ -8,6 +8,7 @@ import { ledgerFixture } from "./helpers/ledger";
 import { syntheticCatalog } from "./helpers/benefit-catalog";
 import { setBenefitProfile } from "@/lib/benefits/profile";
 import { benefitOverview } from "@/lib/benefits/queries";
+import * as creditMatching from "@/lib/benefits/credit-match";
 import { benefitInput } from "@/lib/benefits/input";
 import { createEntry } from "@/lib/ledger/entries";
 import { createAccount } from "@/lib/ledger/accounts";
@@ -211,6 +212,42 @@ it("uses booking dates, estimates missing account dates and retains stale profil
   expect(staleHtml).not.toContain('<option value="removed-product"');
   expect(staleHtml).not.toContain("（更改）");
 });
+it.each(["no_effective_version", "currency_mismatch"])(
+  "shows the final automatic label when the engine rejects a pre-pass candidate: %s",
+  async (reason) => {
+    await profile();
+    const entry = await refund();
+    const catalog = syntheticCatalog();
+    const product = catalog.cards[0];
+    const credit = product.credits[0];
+    if (reason === "no_effective_version") credit.versions[0].effective_from = "2026-07-01";
+    else product.currency = "EUR";
+    const matchBenefitCredits = creditMatching.matchBenefitCredits;
+    const prepass = vi.spyOn(creditMatching, "matchBenefitCredits");
+    // The pre-pass is advisory; final validation must override a stale recommendation.
+    prepass.mockImplementationOnce((input, assignments) => {
+      const result = matchBenefitCredits(input, assignments);
+      result.matches[entry.id].automaticCreditId = credit.id;
+      result.matches[entry.id].source = "keyword";
+      return result;
+    });
+    try {
+      const data = await overview(catalog);
+      const card = data.cards.find((card) => card.accountId === f.card.id)!;
+      expect(card.byName.flatMap((group) => group.entries).map((entry) => entry.id)).toContain(entry.id);
+      expect(card.catalog).toMatchObject({
+        entryAssignments: {
+          [entry.id]: { automaticCreditId: null, source: null, ownerAssigned: false },
+        },
+      });
+      const html = renderToStaticMarkup(<BenefitDetails card={card} year={data.year} />);
+      expect(html).toContain("自动匹配（其他权益）");
+      expect(html).not.toContain(`自动匹配（${credit.name}）`);
+    } finally {
+      prepass.mockRestore();
+    }
+  },
+);
 it("exports profiles through the owner inventory with children before accounts", async () => {
   await profile();
   const data = await exportOwnerData(h.db, f.ownerId);

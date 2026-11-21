@@ -334,6 +334,11 @@ it("overlays current and past periods, recalculates year and tile figures, and i
   const html = renderToStaticMarkup(<BenefitOverview data={data} />);
   expect(html).toContain(renderToStaticMarkup(<InlineMoney value="20.0000" currency="USD" />));
   const details = renderToStaticMarkup(<BenefitDetails card={card} year="2026" products={data.products} />);
+  expect(details).toContain("2026 年最多可报销");
+  expect(details).toContain("2026 年全部权益返还");
+  expect(details).toContain("（含目录外）");
+  expect(details).toContain("还可报销");
+  expect(details).toContain("已过期未用");
   expect(details).toContain("已手动标记");
   expect(details).toContain('checked=""');
   expect(details).toContain("标记已报销");
@@ -368,7 +373,7 @@ it.each(["anniversary", "anniversary_statement"])(
     await setBenefitMark(h.db, f.ownerId, { ...markInput(), periodStart: asOf, periodEnd: "2027-06-14" });
     const card = cardFrom(await overview(catalog));
     expect(card.catalog).toMatchObject({
-      annual: { used: "0.0000", cap: "0.0000" },
+      annual: { used: "10.0000", cap: "10.0000" },
       instances: [
         {
           status: "estimated",
@@ -391,6 +396,10 @@ it("overlays an eligible multi-year window without annualizing it", async () => 
   });
   await setBenefitMark(h.db, f.ownerId, { ...markInput(), periodStart: asOf, periodEnd: "2030-06-14" });
   const card = cardFrom(await overview(catalog));
+  const html = renderToStaticMarkup(<BenefitDetails card={card} year="2026" />);
+  expect(html).toContain("2026 年合计");
+  expect(html).not.toContain("年最多可报销");
+  expect(html).toContain("权益报销");
   expect(card.catalog).toMatchObject({
     annual: { used: "0.0000", cap: "0.0000" },
     instances: [

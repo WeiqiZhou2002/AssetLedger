@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { InlineMoney } from "@/components/money-amount";
 import { Badge } from "@/components/ui/badge";
-import { money } from "@/lib/money";
+import { money, sumMoney } from "@/lib/money";
 import type { BenefitEntry, Conditions } from "@/lib/benefits/progress/types";
 import type { DisplayInstance } from "@/lib/benefits/marks";
 import { addDays, addYears } from "@/lib/benefits/progress/dates";
+import { isUnqualifiedConditional } from "@/lib/benefits/totals";
+import { BenefitAssignmentSelect } from "./assignment-select";
 import { BenefitMarkCheckbox } from "./mark-checkbox";
 import type { CatalogDetails } from "./types";
 const states = {
@@ -33,15 +35,21 @@ function basisLabel(basis: string) {
   };
   return Object.hasOwn(labels, basis) ? labels[basis] : "特殊周期";
 }
-function EntryLinks({ entries }: { entries: BenefitEntry[] }) {
+function EntryLinks({ entries, catalog }: { entries: BenefitEntry[]; catalog: CatalogDetails }) {
   return (
     <ul className="mt-2 space-y-2 text-xs leading-6">
       {entries.map((entry) => (
-        <li key={entry.id}>
+        <li key={entry.id} className="min-w-0">
           <Link href={`/activity?entryId=${entry.id}`} className="break-words text-primary">
             {entry.date} · {entry.description || entry.merchant || "权益报销"} ·{" "}
             <InlineMoney value={entry.amount} currency={entry.currency} />
           </Link>
+          <BenefitAssignmentSelect
+            entryId={entry.id}
+            productId={catalog.productId}
+            credits={catalog.credits}
+            assignment={catalog.entryAssignments[entry.id]}
+          />
         </li>
       ))}
     </ul>
@@ -75,13 +83,24 @@ function ReimbursementRow({
   accountId,
   productId,
   asOf,
+  catalog,
+  year,
 }: {
   instance: DisplayInstance;
+  year: string;
+  catalog: CatalogDetails;
   currency: string;
   accountId: string;
   productId: string;
   asOf: string;
 }) {
+  const conditional = isUnqualifiedConditional(instance);
+  const periodic = instance.status === "ok" && "year" in instance ? instance : null;
+  const expired =
+    periodic && !conditional
+      ? periodic.periods.filter((period) => period.end < asOf && money(period.remaining).gt("0"))
+      : [];
+  const markedPast = periodic?.periods.filter((period) => period.end < asOf && period.marked) ?? [];
   const markProps = { accountId, productId, creditId: instance.credit };
   const current = instance.status === "ok" && "year" in instance ? instance.current_period : null;
   const termsNote = instance.terms_as_of ? (
@@ -105,7 +124,9 @@ function ReimbursementRow({
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          {current ? (
+          {conditional ? (
+            <Badge variant="secondary">需满足条件</Badge>
+          ) : current ? (
             <Badge variant={current.state === "over" ? "destructive" : "secondary"}>
               {states[current.state]}
             </Badge>
@@ -125,6 +146,34 @@ function ReimbursementRow({
           ) : null}
         </div>
       </div>
+      {periodic ? (
+        <p className="mt-2 text-xs leading-6">
+          {year} 年额度 <InlineMoney value={periodic.year.cap} currency={currency} />
+          {conditional ? (
+            "，满足条件后可用"
+          ) : (
+            <>
+              {" · 已报销 "}
+              <InlineMoney value={periodic.year.used} currency={currency} />
+              {" · "}
+              <span className={money(periodic.year.expired_unused).gt("0") ? "text-destructive" : undefined}>
+                已过期未用 <InlineMoney value={periodic.year.expired_unused} currency={currency} />
+              </span>
+              {" · 还可报销 "}
+              <InlineMoney
+                value={money(periodic.year.available).plus(periodic.year.upcoming).toFixed(4)}
+                currency={currency}
+              />
+            </>
+          )}
+        </p>
+      ) : (
+        <p className="mt-2 text-xs leading-6">
+          额度{" "}
+          {instance.amount !== null ? <InlineMoney value={instance.amount} currency={currency} /> : "待核实"}{" "}
+          / {periodLabel(instance.period, instance.period_years)}
+        </p>
+      )}
       {instance.enrollment === "required" || instance.enrollment === "activation" ? (
         <Badge variant="outline" className="mt-2">
           {instance.enrollment === "required" ? "需登记" : "需激活"}
@@ -134,12 +183,7 @@ function ReimbursementRow({
       {message ? (
         <div className="mt-3 space-y-2 leading-6">
           <p>{message}</p>
-          {instance.amount !== null ? (
-            <p>
-              额度 <InlineMoney value={instance.amount} currency={currency} />
-            </p>
-          ) : null}
-          <EntryLinks entries={instance.entry_details} />
+          <EntryLinks catalog={catalog} entries={instance.entry_details} />
         </div>
       ) : null}
       {instance.status === "estimated" ? (
@@ -160,6 +204,7 @@ function ReimbursementRow({
             />
           ) : null}
           <EntryLinks
+            catalog={catalog}
             entries={instance.entry_details.filter(
               (entry) => instance.window.start <= entry.date && entry.date <= instance.window.end,
             )}
@@ -173,11 +218,6 @@ function ReimbursementRow({
               ? "可使用"
               : `已使用（${instance.window!.start}），${instance.window!.next_eligible_on} 起可再次使用`}
           </p>
-          {instance.amount !== null ? (
-            <p>
-              额度 <InlineMoney value={instance.amount} currency={currency} />
-            </p>
-          ) : null}
           {instance.window ? (
             <p>
               本期已报销 <InlineMoney value={instance.window.used} currency={currency} /> /{" "}
@@ -196,6 +236,7 @@ function ReimbursementRow({
             />
           ) : null}
           <EntryLinks
+            catalog={catalog}
             entries={instance.entry_details.filter((entry) => instance.entries.includes(entry.id))}
           />
         </div>
@@ -233,15 +274,60 @@ function ReimbursementRow({
               ，请检查是否对应错误。
             </p>
           ) : null}
+          {expired.length ? (
+            <details className="mt-3 border-t pt-3" open={expired.length <= 3}>
+              <summary className="cursor-pointer text-xs leading-6 font-medium text-destructive">
+                已过期未用 · {expired.length} 个周期 · 共{" "}
+                <InlineMoney
+                  value={sumMoney(expired.map((period) => period.remaining)).toFixed(4)}
+                  currency={currency}
+                />
+              </summary>
+              <ul className="mt-2 space-y-3" aria-label={`${instance.name} 已过期未用`}>
+                {expired.map((period) => (
+                  <li key={period.start} className="text-xs leading-6">
+                    <p>
+                      {period.start} 至 {period.end} · {money(period.used).isZero() ? "未报销" : "部分报销"} ·
+                      剩余 <InlineMoney value={period.remaining} currency={currency} />
+                    </p>
+                    <BenefitMarkCheckbox
+                      {...markProps}
+                      label="标记已报销"
+                      marked={period.marked}
+                      periodStart={period.start}
+                      periodEnd={period.end}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+          {markedPast.length ? (
+            <details className="mt-3 border-t pt-3" open={markedPast.length <= 3}>
+              <summary className="cursor-pointer text-xs leading-6 font-medium">
+                已手动标记 · {markedPast.length} 个周期
+              </summary>
+              <ul className="mt-2 space-y-3" aria-label={`${instance.name} 已手动标记`}>
+                {markedPast.map((period) => (
+                  <li key={period.start} className="text-xs leading-6">
+                    <p>
+                      {period.start} 至 {period.end} · 已手动标记
+                    </p>
+                    <BenefitMarkCheckbox
+                      {...markProps}
+                      label="标记已报销"
+                      marked={period.marked}
+                      periodStart={period.activeMark?.periodStart ?? period.start}
+                      periodEnd={period.activeMark?.periodEnd ?? period.end}
+                    />
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
           <details className="mt-3 border-t pt-3">
             <summary className="cursor-pointer text-xs leading-6">
-              年度已报销 <InlineMoney value={instance.year.used} currency={currency} /> /{" "}
-              <InlineMoney value={instance.year.cap} currency={currency} /> · 已过期未用{" "}
-              <InlineMoney value={instance.year.expired_unused} currency={currency} /> · 待开始{" "}
-              <InlineMoney value={instance.year.upcoming} currency={currency} />
-              <span className="block text-muted-foreground">
-                {instance.year.start} 至 {instance.year.end}
-              </span>
+              查看各周期明细（{instance.year.start} 至 {instance.year.end}）
             </summary>
             {termsNote}
             <ol className="mt-3 space-y-3" aria-label={`${instance.name} 周期`}>
@@ -253,17 +339,8 @@ function ReimbursementRow({
                     <InlineMoney value={period.cap} currency={currency} />
                   </p>
                   {period.marked ? <span className="text-muted-foreground">已手动标记</span> : null}
-                  {period.end < asOf &&
-                  (period.marked || period.state === "unused" || period.state === "partial") ? (
-                    <BenefitMarkCheckbox
-                      {...markProps}
-                      label="标记已报销"
-                      marked={period.marked}
-                      periodStart={period.activeMark?.periodStart ?? period.start}
-                      periodEnd={period.activeMark?.periodEnd ?? period.end}
-                    />
-                  ) : null}
                   <EntryLinks
+                    catalog={catalog}
                     entries={period.entries.flatMap((id) =>
                       instance.entry_details.filter((entry) => entry.id === id),
                     )}
@@ -275,6 +352,7 @@ function ReimbursementRow({
               <div className="mt-3">
                 <p className="text-xs text-muted-foreground">未计入周期的报销</p>
                 <EntryLinks
+                  catalog={catalog}
                   entries={instance.entry_details.filter((entry) => instance.unplaced.includes(entry.id))}
                 />
               </div>
@@ -298,7 +376,9 @@ export function BenefitProgressSection({
   catalog,
   accountId,
   asOf,
+  year = asOf.slice(0, 4),
 }: {
+  year?: string;
   catalog: CatalogDetails;
   accountId: string;
   asOf: string;
@@ -313,6 +393,8 @@ export function BenefitProgressSection({
               <ReimbursementRow
                 key={instance.credit}
                 instance={instance}
+                catalog={catalog}
+                year={year}
                 currency={catalog.currency}
                 accountId={accountId}
                 productId={catalog.productId}
