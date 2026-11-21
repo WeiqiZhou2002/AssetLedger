@@ -15,7 +15,7 @@ import { createAccount } from "@/lib/ledger/accounts";
 import { createSession } from "@/lib/auth/session";
 import { ownerTables } from "@/lib/data/tables";
 import { exportOwnerData } from "@/lib/data/export";
-import { MoneyAmount } from "@/components/money-amount";
+import { BenefitAmount } from "@/components/benefits/amount";
 import { BenefitDetails, BenefitOverview } from "@/components/benefits/overview";
 vi.mock("@/lib/benefits/catalog", async (original) => ({
   ...(await original<typeof import("@/lib/benefits/catalog")>()),
@@ -176,7 +176,7 @@ it("keeps totals and ledger records unchanged while matched credits leave other 
   expect(card.families.flatMap((group) => group.entries)).toHaveLength(1);
   expect(card.catalog).toMatchObject({
     productId: "example-voyager",
-    annual: { used: "7.0000", cap: "70.0000" },
+    reimbursed: { coffee: "7.0000" },
     instances: [{ latest_entry: { id: matched.id } }],
   });
   expect(await h.db.select().from(journalEntries)).toEqual(ledgerBefore);
@@ -295,15 +295,14 @@ it("renders reimbursement status, periods, estimates, informational credits and 
     card = data.cards[0];
   const html = renderToStaticMarkup(<BenefitDetails card={card} year={data.year} products={data.products} />);
   const productDisclosure = html.match(
-    /<details([^>]*)><summary[^>]*>卡产品：Example Bank · Voyager Card[\s\S]*?<\/summary>[\s\S]*?<form/,
+    /<details([^>]*)><summary[^>]*>卡产品：Voyager Card[\s\S]*?<\/summary>[\s\S]*?<form/,
   );
   expect(productDisclosure).not.toBeNull();
   expect(productDisclosure![1]).not.toMatch(/\bopen\b/);
   for (const text of [
     "卡产品",
     "权益报销",
-    "部分报销",
-    "最近报销：",
+    "本期部分使用",
     "2026-06-02",
     "2026-06-01 至 2026-06-30",
     "需登记",
@@ -311,14 +310,14 @@ it("renders reimbursement status, periods, estimates, informational credits and 
     "单笔消费满",
     "至少 2 晚",
     "连续 3 个月",
-    "按卡年度重置，暂按近 12 个月估算",
-    "条款待核实，暂不计算。",
-    "该权益的周期规则暂不支持",
+    "卡年度未知，按近 12 个月估算",
+    "条款待核实",
+    "周期规则暂不支持",
     "不在账单上入账",
-    "其他权益",
-    "CardFacts synthetic-v1（草案数据）",
+    "目录外的权益返还 · 1 笔",
+    "CardFacts synthetic-v1（草案）",
     'rel="noreferrer"',
-    "MYSTERY CREDIT",
+    "Mystery Credit",
     "/activity?entryId=",
   ])
     expect(html).toContain(text);
@@ -327,7 +326,7 @@ it("renders reimbursement status, periods, estimates, informational credits and 
   const updated = await overview(catalog);
   expect(
     renderToStaticMarkup(<BenefitDetails card={updated.cards[0]} year="2026" products={updated.products} />),
-  ).toContain("按卡年度重置，暂按近 12 个月估算");
+  ).toContain("卡年度未知，按近 12 个月估算");
   expect(html).not.toContain('type="date"');
   expect(html).not.toContain("/accounts#account-");
 });
@@ -340,7 +339,7 @@ it("keeps the product form expanded without a selected product", async () => {
   expect(html).not.toContain("<details");
 });
 it.each(["unsupported", "to_verify", "multi_year"] as const)(
-  "falls back to annual refunds on the tile when only %s credits exist",
+  "shows actual annual refunds on the tile when only %s credits exist",
   async (kind) => {
     await profile();
     await refund();
@@ -357,12 +356,12 @@ it.each(["unsupported", "to_verify", "multi_year"] as const)(
     }
     const data = await overview(catalog),
       card = data.cards[0];
-    expect(card.catalog).toMatchObject({ annual: { cap: "0.0000" } });
+    expect(card.catalog).toMatchObject({ reimbursed: { coffee: "7.0000" } });
     expect(card.annual).toBe("7.0000");
     const html = renderToStaticMarkup(<BenefitOverview data={data} />);
-    expect(html).not.toContain("已报销");
+    expect(html).toContain("2026 年已报销");
     expect(html).toContain(
-      renderToStaticMarkup(<MoneyAmount value={card.annual} currency={card.currency} />),
+      renderToStaticMarkup(<BenefitAmount value={card.annual} currency={card.currency} large />),
     );
   },
 );

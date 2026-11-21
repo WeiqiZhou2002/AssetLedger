@@ -216,7 +216,7 @@ it("ignores old-product assignments and exports only the owner's choices", async
     Object.keys(ownerTables).indexOf("journal_entries"),
   );
 });
-it("computes Business Platinum matching, qualified caps and expired quarters from synthetic engine inputs", async () => {
+it("computes Business Platinum matching and yearly reimbursements from synthetic engine inputs", async () => {
   await createEntry(
     h.db,
     f.ownerId,
@@ -248,24 +248,12 @@ it("computes Business Platinum matching, qualified caps and expired quarters fro
     automaticCreditId: "hilton",
     source: "fuzzy",
   });
-  expect(details.instances.find((instance) => instance.credit === "dell")).toMatchObject({
-    year: { used: "150.0000" },
+  expect(details.reimbursed).toMatchObject({
+    dell: "150.0000",
+    "dell-spend": "1000.0000",
+    hilton: "50.0000",
   });
-  expect(details.instances.find((instance) => instance.credit === "dell-spend")).toMatchObject({
-    year: { used: "1000.0000" },
-  });
-  expect(details.instances.find((instance) => instance.credit === "hilton")).toMatchObject({
-    year: { cap: "200.0000", used: "50.0000", expired_unused: "100.0000", available: "50.0000" },
-    periods: [{ state: "full" }, { state: "unused" }, { state: "unused" }, { state: "unused" }],
-  });
-  expect(details.annual).toEqual({
-    cap: "3649.0000",
-    used: "1200.0000",
-    expiredUnused: "770.0000",
-    remaining: "1679.0000",
-    conditionalCap: "3850.0000",
-    excluded: { multiYear: 1, untracked: 0 },
-  });
+  expect(details).not.toHaveProperty("annual");
 });
 it("accepts automatic product detection and enforces session/origin on PUT", async () => {
   await setBenefitProfile(h.db, f.ownerId, { accountId: f.card.id, mode: "auto" });

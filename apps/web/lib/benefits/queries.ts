@@ -19,7 +19,7 @@ import { applyBenefitMarks } from "./marks";
 import { benefitProgress, type ProgressInput } from "./progress";
 import { matchBenefitCredits } from "./credit-match";
 import { benefitLineage, inheritedAssignments } from "./assignments";
-import { benefitTotals } from "./totals";
+import { creditYearReimbursed } from "./display";
 
 async function benefitRecords(db: AppDb, ownerId: string) {
   const rows = await db
@@ -253,7 +253,12 @@ export async function benefitOverview(
               sources: product.sources,
               instances: progress.instances,
               informational: progress.informational,
-              annual: benefitTotals(progress.instances),
+              reimbursed: Object.fromEntries(
+                progress.instances.map((instance) => [
+                  instance.credit,
+                  creditYearReimbursed(instance, year, asOf),
+                ]),
+              ),
               credits: product.credits
                 .filter((credit) => !credit.delivery || credit.delivery === "statement_credit")
                 .map(({ id, name }) => ({ id, name })),

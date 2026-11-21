@@ -1,20 +1,23 @@
 import Link from "next/link";
-import { InlineMoney } from "@/components/money-amount";
+import { ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { money, sumMoney } from "@/lib/money";
+import { money } from "@/lib/money";
 import type { BenefitEntry, Conditions } from "@/lib/benefits/progress/types";
 import type { DisplayInstance } from "@/lib/benefits/marks";
 import { addDays, addYears } from "@/lib/benefits/progress/dates";
-import { isUnqualifiedConditional } from "@/lib/benefits/totals";
+import { creditStatus, groupCredits } from "@/lib/benefits/display";
+import { BenefitAmount } from "./amount";
 import { BenefitAssignmentSelect } from "./assignment-select";
 import { BenefitMarkCheckbox } from "./mark-checkbox";
 import type { CatalogDetails } from "./types";
 const states = {
-  full: "已报销",
-  partial: "部分报销",
-  unused: "未报销",
-  over: "超出额度",
+  used: "本期已用",
+  partial: "本期部分使用",
+  unused: "本期未用",
   upcoming: "未开始",
+  eligible: "可使用",
+  cooldown: "已使用",
+  conditional: "需满足条件",
 };
 export function periodLabel(period: string, years: number | null) {
   const labels: Record<string, string> = {
@@ -26,23 +29,38 @@ export function periodLabel(period: string, years: number | null) {
   };
   return Object.hasOwn(labels, period) ? labels[period] : "周期待确认";
 }
-function basisLabel(basis: string) {
-  const labels: Record<string, string> = {
-    calendar: "自然年",
-    anniversary: "卡年度",
-    anniversary_statement: "账单年度",
-    since_last_credit: "自上次报销起",
-  };
-  return Object.hasOwn(labels, basis) ? labels[basis] : "特殊周期";
+function FaceValue({
+  credit,
+  currency,
+}: {
+  credit: { amount: string | null; period: string; period_years: number | null };
+  currency: string;
+}) {
+  return credit.amount === null ? (
+    "待核实"
+  ) : (
+    <>
+      {periodLabel(credit.period, credit.period_years)}{" "}
+      <BenefitAmount value={credit.amount} currency={currency} />
+    </>
+  );
 }
-function EntryLinks({ entries, catalog }: { entries: BenefitEntry[]; catalog: CatalogDetails }) {
+function EntryLinks({
+  entries,
+  catalog,
+  name,
+}: {
+  entries: BenefitEntry[];
+  catalog: CatalogDetails;
+  name: string;
+}) {
+  if (!entries.length) return null;
   return (
-    <ul className="mt-2 space-y-2 text-xs leading-6">
+    <ul aria-label={`${name} 流水`} className="space-y-2 border-t pt-2 text-xs leading-6">
       {entries.map((entry) => (
         <li key={entry.id} className="min-w-0">
-          <Link href={`/activity?entryId=${entry.id}`} className="break-words text-primary">
-            {entry.date} · {entry.description || entry.merchant || "权益报销"} ·{" "}
-            <InlineMoney value={entry.amount} currency={entry.currency} />
+          <Link href={`/activity?entryId=${entry.id}`} className="text-primary">
+            {entry.date} · <BenefitAmount value={entry.amount} currency={entry.currency} />
           </Link>
           <BenefitAssignmentSelect
             entryId={entry.id}
@@ -61,27 +79,29 @@ function ConditionsLabel({ conditions, currency }: { conditions: Conditions; cur
     ? ({
         transaction: "单笔消费满",
         benefit_period: "本期消费满",
-        previous_calendar_year: "上一自然年消费满",
+        previous_calendar_year: "上一年消费满",
       }[spend.period] ?? "消费满")
     : null;
+  const labels = [
+    conditions.minimum_nights ? `至少 ${conditions.minimum_nights} 晚` : null,
+    conditions.consecutive_months ? `连续 ${conditions.consecutive_months} 个月` : null,
+  ].filter(Boolean);
   return (
-    <p className="mt-2 text-xs leading-6 text-muted-foreground">
+    <p className="text-muted-foreground">
       需满足条件：
       {spend ? (
         <>
-          {spendLabel} <InlineMoney value={spend.amount} currency={currency} />；
+          {spendLabel} <BenefitAmount value={spend.amount} currency={currency} />
+          {labels.length ? "；" : ""}
         </>
       ) : null}
-      {conditions.minimum_nights ? <>至少 {conditions.minimum_nights} 晚；</> : null}
-      {conditions.consecutive_months ? <>连续 {conditions.consecutive_months} 个月</> : null}
+      {labels.join("；")}
     </p>
   );
 }
 function ReimbursementRow({
   instance,
-  currency,
   accountId,
-  productId,
   asOf,
   catalog,
   year,
@@ -89,286 +109,109 @@ function ReimbursementRow({
   instance: DisplayInstance;
   year: string;
   catalog: CatalogDetails;
-  currency: string;
   accountId: string;
-  productId: string;
   asOf: string;
 }) {
-  const conditional = isUnqualifiedConditional(instance);
-  const periodic = instance.status === "ok" && "year" in instance ? instance : null;
-  const expired =
-    periodic && !conditional
-      ? periodic.periods.filter((period) => period.end < asOf && money(period.remaining).gt("0"))
-      : [];
-  const markedPast = periodic?.periods.filter((period) => period.end < asOf && period.marked) ?? [];
-  const markProps = { accountId, productId, creditId: instance.credit };
   const current = instance.status === "ok" && "year" in instance ? instance.current_period : null;
-  const termsNote = instance.terms_as_of ? (
-    <p className="mt-2 text-xs text-muted-foreground">
-      条款核实于 {instance.terms_as_of}，起始生效日未公布。
-    </p>
-  ) : null;
-  const message =
-    instance.status === "to_verify"
-      ? "条款待核实，暂不计算。"
-      : instance.status === "unsupported"
-        ? "该权益的周期规则暂不支持，仅列出额度。"
-        : null;
+  const status = creditStatus(instance, asOf, year);
+  const markProps = { accountId, productId: catalog.productId, creditId: instance.credit };
+  const entries = instance.entry_details
+    .filter((entry) => entry.date.startsWith(`${year}-`) && entry.date <= asOf)
+    .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
   return (
-    <li className="min-w-0 rounded-lg border p-4 text-sm">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h4 className="font-medium break-words">{instance.name}</h4>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {periodLabel(instance.period, instance.period_years)} · {basisLabel(instance.reset_basis)}
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-          {conditional ? (
-            <Badge variant="secondary">需满足条件</Badge>
-          ) : current ? (
-            <Badge variant={current.state === "over" ? "destructive" : "secondary"}>
-              {states[current.state]}
+    <li className="min-w-0">
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-2 py-3 text-sm [&::-webkit-details-marker]:hidden">
+          <span
+            className="min-w-0 flex-1 truncate font-medium group-open:whitespace-normal"
+            title={instance.name}
+          >
+            {instance.name}
+          </span>
+          <span className="shrink-0 text-xs text-muted-foreground">
+            <FaceValue credit={instance} currency={catalog.currency} />
+          </span>
+          <span className="shrink-0 text-right">
+            <BenefitAmount value={catalog.reimbursed[instance.credit] ?? "0"} currency={catalog.currency} />
+          </span>
+          {status ? (
+            <Badge variant="secondary" className="shrink-0 text-[0.625rem]">
+              {states[status]}
             </Badge>
-          ) : instance.status === "estimated" ? (
-            <Badge variant="secondary">
-              {money(instance.window.used).gte(instance.window.cap)
-                ? "已报销"
-                : money(instance.window.used).isZero()
-                  ? "未报销"
-                  : "部分报销"}
-            </Badge>
-          ) : instance.status === "ok" && "eligible" in instance ? (
-            <Badge variant="secondary">{instance.eligible ? "可使用" : "已报销"}</Badge>
           ) : null}
-          {current?.marked || instance.marked ? (
-            <span className="text-xs text-muted-foreground">已手动标记</span>
-          ) : null}
-        </div>
-      </div>
-      {periodic ? (
-        <p className="mt-2 text-xs leading-6">
-          {year} 年额度 <InlineMoney value={periodic.year.cap} currency={currency} />
-          {conditional ? (
-            "，满足条件后可用"
-          ) : (
+          <ChevronDown
+            aria-hidden
+            className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180"
+          />
+        </summary>
+        <div className="min-w-0 space-y-2 pb-3 text-xs leading-6">
+          {current && current.start <= asOf && asOf <= current.end ? (
             <>
-              {" · 已报销 "}
-              <InlineMoney value={periodic.year.used} currency={currency} />
-              {" · "}
-              <span className={money(periodic.year.expired_unused).gt("0") ? "text-destructive" : undefined}>
-                已过期未用 <InlineMoney value={periodic.year.expired_unused} currency={currency} />
-              </span>
-              {" · 还可报销 "}
-              <InlineMoney
-                value={money(periodic.year.available).plus(periodic.year.upcoming).toFixed(4)}
-                currency={currency}
-              />
+              <p className="text-muted-foreground">
+                本期 {current.start} 至 {current.end}
+              </p>
+              {current.marked || current.state === "unused" || current.state === "partial" ? (
+                <BenefitMarkCheckbox
+                  {...markProps}
+                  label="本期已报销"
+                  marked={current.marked}
+                  periodStart={current.activeMark?.periodStart ?? current.start}
+                  periodEnd={current.activeMark?.periodEnd ?? current.end}
+                />
+              ) : null}
             </>
-          )}
-        </p>
-      ) : (
-        <p className="mt-2 text-xs leading-6">
-          额度{" "}
-          {instance.amount !== null ? <InlineMoney value={instance.amount} currency={currency} /> : "待核实"}{" "}
-          / {periodLabel(instance.period, instance.period_years)}
-        </p>
-      )}
-      {instance.enrollment === "required" || instance.enrollment === "activation" ? (
-        <Badge variant="outline" className="mt-2">
-          {instance.enrollment === "required" ? "需登记" : "需激活"}
-        </Badge>
-      ) : null}
-      {instance.conditions ? <ConditionsLabel conditions={instance.conditions} currency={currency} /> : null}
-      {message ? (
-        <div className="mt-3 space-y-2 leading-6">
-          <p>{message}</p>
-          <EntryLinks catalog={catalog} entries={instance.entry_details} />
-        </div>
-      ) : null}
-      {instance.status === "estimated" ? (
-        <div className="mt-3 leading-6">
-          <p className="text-xs text-muted-foreground">按卡年度重置，暂按近 12 个月估算</p>
-          <p>
-            近 12 个月已报销 <InlineMoney value={instance.window.used} currency={currency} /> /{" "}
-            <InlineMoney value={instance.window.cap} currency={currency} />
-            ，剩余 <InlineMoney value={instance.window.remaining} currency={currency} />
-          </p>
-          {instance.marked || money(instance.window.used).lt(instance.window.cap) ? (
-            <BenefitMarkCheckbox
-              {...markProps}
-              label="已报销"
-              marked={instance.marked}
-              periodStart={instance.activeMark?.periodStart ?? asOf}
-              periodEnd={instance.activeMark?.periodEnd ?? addDays(addYears(asOf, 1), -1)}
-            />
           ) : null}
-          <EntryLinks
-            catalog={catalog}
-            entries={instance.entry_details.filter(
-              (entry) => instance.window.start <= entry.date && entry.date <= instance.window.end,
-            )}
-          />
-        </div>
-      ) : null}
-      {instance.status === "ok" && "eligible" in instance ? (
-        <div className="mt-3 leading-6">
-          <p>
-            {instance.eligible
-              ? "可使用"
-              : `已使用（${instance.window!.start}），${instance.window!.next_eligible_on} 起可再次使用`}
-          </p>
-          {instance.window ? (
-            <p>
-              本期已报销 <InlineMoney value={instance.window.used} currency={currency} /> /{" "}
-              <InlineMoney value={instance.window.cap} currency={currency} />
-            </p>
-          ) : null}
-          {instance.marked || instance.eligible ? (
-            <BenefitMarkCheckbox
-              {...markProps}
-              label="已报销"
-              marked={instance.marked}
-              periodStart={instance.activeMark?.periodStart ?? asOf}
-              periodEnd={
-                instance.activeMark?.periodEnd ?? addDays(addYears(asOf, instance.period_years!), -1)
-              }
-            />
-          ) : null}
-          <EntryLinks
-            catalog={catalog}
-            entries={instance.entry_details.filter((entry) => instance.entries.includes(entry.id))}
-          />
-        </div>
-      ) : null}
-      {instance.status === "ok" && "year" in instance ? (
-        <>
-          {current ? (
-            <p className="mt-3 leading-6">
-              本期已报销 <InlineMoney value={current.used} currency={currency} /> /{" "}
-              <InlineMoney value={current.cap} currency={currency} />
-              ，剩余 <InlineMoney value={current.remaining} currency={currency} />，{current.end} 截止
-            </p>
-          ) : (
-            <p className="mt-3 text-muted-foreground">
-              {instance.periods.every((period) => period.state === "upcoming")
-                ? "未开始"
-                : "当前日期不在本年度权益周期内。"}
-            </p>
-          )}
-          {current &&
-          current.start <= asOf &&
-          asOf <= current.end &&
-          (current.marked || current.state === "unused" || current.state === "partial") ? (
-            <BenefitMarkCheckbox
-              {...markProps}
-              label="本期已报销"
-              marked={current.marked}
-              periodStart={current.activeMark?.periodStart ?? current.start}
-              periodEnd={current.activeMark?.periodEnd ?? current.end}
-            />
-          ) : null}
-          {money(instance.year.excess).gt(0) ? (
-            <p className="mt-2 text-destructive">
-              超出额度 <InlineMoney value={instance.year.excess} currency={currency} />
-              ，请检查是否对应错误。
-            </p>
-          ) : null}
-          {expired.length ? (
-            <details className="mt-3 border-t pt-3" open={expired.length <= 3}>
-              <summary className="cursor-pointer text-xs leading-6 font-medium text-destructive">
-                已过期未用 · {expired.length} 个周期 · 共{" "}
-                <InlineMoney
-                  value={sumMoney(expired.map((period) => period.remaining)).toFixed(4)}
-                  currency={currency}
+          {instance.status === "estimated" && year >= asOf.slice(0, 4) ? (
+            <>
+              <p className="text-muted-foreground">卡年度未知，按近 12 个月估算</p>
+              {instance.marked || money(instance.window.used).lt(instance.window.cap) ? (
+                <BenefitMarkCheckbox
+                  {...markProps}
+                  label="已报销"
+                  marked={instance.marked}
+                  periodStart={instance.activeMark?.periodStart ?? asOf}
+                  periodEnd={instance.activeMark?.periodEnd ?? addDays(addYears(asOf, 1), -1)}
                 />
-              </summary>
-              <ul className="mt-2 space-y-3" aria-label={`${instance.name} 已过期未用`}>
-                {expired.map((period) => (
-                  <li key={period.start} className="text-xs leading-6">
-                    <p>
-                      {period.start} 至 {period.end} · {money(period.used).isZero() ? "未报销" : "部分报销"} ·
-                      剩余 <InlineMoney value={period.remaining} currency={currency} />
-                    </p>
-                    <BenefitMarkCheckbox
-                      {...markProps}
-                      label="标记已报销"
-                      marked={period.marked}
-                      periodStart={period.start}
-                      periodEnd={period.end}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </details>
+              ) : null}
+            </>
           ) : null}
-          {markedPast.length ? (
-            <details className="mt-3 border-t pt-3" open={markedPast.length <= 3}>
-              <summary className="cursor-pointer text-xs leading-6 font-medium">
-                已手动标记 · {markedPast.length} 个周期
-              </summary>
-              <ul className="mt-2 space-y-3" aria-label={`${instance.name} 已手动标记`}>
-                {markedPast.map((period) => (
-                  <li key={period.start} className="text-xs leading-6">
-                    <p>
-                      {period.start} 至 {period.end} · 已手动标记
-                    </p>
-                    <BenefitMarkCheckbox
-                      {...markProps}
-                      label="标记已报销"
-                      marked={period.marked}
-                      periodStart={period.activeMark?.periodStart ?? period.start}
-                      periodEnd={period.activeMark?.periodEnd ?? period.end}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ) : null}
-          <details className="mt-3 border-t pt-3">
-            <summary className="cursor-pointer text-xs leading-6">
-              查看各周期明细（{instance.year.start} 至 {instance.year.end}）
-            </summary>
-            {termsNote}
-            <ol className="mt-3 space-y-3" aria-label={`${instance.name} 周期`}>
-              {instance.periods.map((period) => (
-                <li key={period.start} className="border-t pt-3 text-xs leading-6">
-                  <p>
-                    {period.start} 至 {period.end} · {states[period.state]} ·{" "}
-                    <InlineMoney value={period.used} currency={currency} /> /{" "}
-                    <InlineMoney value={period.cap} currency={currency} />
-                  </p>
-                  {period.marked ? <span className="text-muted-foreground">已手动标记</span> : null}
-                  <EntryLinks
-                    catalog={catalog}
-                    entries={period.entries.flatMap((id) =>
-                      instance.entry_details.filter((entry) => entry.id === id),
-                    )}
-                  />
-                </li>
-              ))}
-            </ol>
-            {instance.unplaced.length ? (
-              <div className="mt-3">
-                <p className="text-xs text-muted-foreground">未计入周期的报销</p>
-                <EntryLinks
-                  catalog={catalog}
-                  entries={instance.entry_details.filter((entry) => instance.unplaced.includes(entry.id))}
+          {instance.status === "ok" && "eligible" in instance ? (
+            <>
+              {instance.marked || instance.eligible ? (
+                <BenefitMarkCheckbox
+                  {...markProps}
+                  label="已报销"
+                  marked={instance.marked}
+                  periodStart={instance.activeMark?.periodStart ?? asOf}
+                  periodEnd={
+                    instance.activeMark?.periodEnd ?? addDays(addYears(asOf, instance.period_years!), -1)
+                  }
                 />
-              </div>
-            ) : null}
-          </details>
-        </>
-      ) : null}
-      {instance.latest_entry ? (
-        <p className="mt-1 text-xs leading-6 text-muted-foreground">
-          最近报销：{instance.latest_entry.date}{" "}
-          <InlineMoney value={instance.latest_entry.amount} currency={currency} />
-        </p>
-      ) : (
-        <p className="mt-1 text-xs text-muted-foreground">暂无报销流水</p>
-      )}
-      {instance.status === "ok" && "year" in instance ? null : termsNote}
+              ) : null}
+              {!instance.eligible && instance.window ? (
+                <p className="text-muted-foreground">{instance.window.next_eligible_on} 起可再次使用</p>
+              ) : null}
+            </>
+          ) : null}
+          {instance.status === "to_verify" ? <p className="text-muted-foreground">条款待核实</p> : null}
+          {instance.status === "unsupported" ? (
+            <p className="text-muted-foreground">周期规则暂不支持</p>
+          ) : null}
+          {instance.conditions ? (
+            <ConditionsLabel conditions={instance.conditions} currency={catalog.currency} />
+          ) : null}
+          {instance.enrollment === "required" || instance.enrollment === "activation" ? (
+            <Badge variant="outline">{instance.enrollment === "required" ? "需登记" : "需激活"}</Badge>
+          ) : null}
+          {instance.status === "ok" && "year" in instance && money(instance.year.excess).gt("0") ? (
+            <p className="text-destructive">
+              超出额度 <BenefitAmount value={instance.year.excess} currency={catalog.currency} />
+              ，可能对应错误
+            </p>
+          ) : null}
+          <EntryLinks entries={entries} catalog={catalog} name={instance.name} />
+        </div>
+      </details>
     </li>
   );
 }
@@ -383,46 +226,45 @@ export function BenefitProgressSection({
   accountId: string;
   asOf: string;
 }) {
+  const { main, other } = groupCredits(catalog.instances, catalog.reimbursed);
+  const otherCount = other.length + catalog.informational.length;
+  const rows = (instances: DisplayInstance[], label: string) => (
+    <ul aria-label={label} className="divide-y border-y">
+      {instances.map((instance) => (
+        <ReimbursementRow
+          key={instance.credit}
+          instance={instance}
+          catalog={catalog}
+          year={year}
+          accountId={accountId}
+          asOf={asOf}
+        />
+      ))}
+    </ul>
+  );
   return (
     <>
-      <section className="space-y-3" aria-label="权益报销">
-        <h3 className="font-medium">权益报销</h3>
-        {catalog.instances.length ? (
-          <ul className="space-y-3">
-            {catalog.instances.map((instance) => (
-              <ReimbursementRow
-                key={instance.credit}
-                instance={instance}
-                catalog={catalog}
-                year={year}
-                currency={catalog.currency}
-                accountId={accountId}
-                productId={catalog.productId}
-                asOf={asOf}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">所选年份暂无可展示的目录权益。</p>
-        )}
-      </section>
-      {catalog.informational.length ? (
-        <section className="space-y-3" aria-label="不在账单上入账">
-          <h3 className="font-medium">不在账单上入账</h3>
-          <ul className="space-y-2 text-sm leading-6 text-muted-foreground">
-            {catalog.informational.map((credit) => (
-              <li key={credit.credit}>
-                {credit.name} ·{" "}
-                {credit.amount !== null ? (
-                  <InlineMoney value={credit.amount} currency={catalog.currency} />
-                ) : (
-                  "额度待核实"
-                )}{" "}
-                / {periodLabel(credit.period, credit.period_years)}，不会出现在信用卡流水中。
-              </li>
-            ))}
-          </ul>
-        </section>
+      {main.length ? rows(main, "权益报销") : null}
+      {otherCount ? (
+        <details className="group/folded border-y">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-3 text-sm [&::-webkit-details-marker]:hidden">
+            <span>其他报销项目 · {otherCount} 项</span>
+            <ChevronDown
+              aria-hidden
+              className="size-4 shrink-0 text-muted-foreground transition-transform group-open/folded:rotate-180"
+            />
+          </summary>
+          {other.length ? rows(other, "其他报销项目") : null}
+          {catalog.informational.length ? (
+            <ul aria-label="不在账单上入账" className="divide-y text-xs leading-6 text-muted-foreground">
+              {catalog.informational.map((credit) => (
+                <li key={credit.credit} className="py-2">
+                  {credit.name} · <FaceValue credit={credit} currency={catalog.currency} /> · 不在账单上入账
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </details>
       ) : null}
     </>
   );
@@ -430,16 +272,19 @@ export function BenefitProgressSection({
 export function BenefitCatalogFooter({ catalog }: { catalog: CatalogDetails }) {
   return (
     <footer className="space-y-2 border-t pt-4 text-xs leading-6 text-muted-foreground">
-      <p>额度与周期来自 CardFacts {catalog.catalogVersion}（草案数据），以发卡机构条款为准。</p>
-      <ul>
-        {catalog.sources.map((source) => (
-          <li key={source.id}>
-            <a href={source.url} target="_blank" rel="noreferrer" className="break-words text-primary">
-              {source.title}
-            </a>
-          </li>
-        ))}
-      </ul>
+      <p>数据来自 CardFacts {catalog.catalogVersion}（草案），以发卡机构条款为准</p>
+      <details>
+        <summary className="cursor-pointer">来源 · {catalog.sources.length}</summary>
+        <ul aria-label="权益来源" className="mt-2">
+          {catalog.sources.map((source) => (
+            <li key={source.id}>
+              <a href={source.url} target="_blank" rel="noreferrer" className="break-words text-primary">
+                {source.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </details>
     </footer>
   );
 }

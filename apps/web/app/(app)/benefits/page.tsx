@@ -18,11 +18,7 @@ export default async function Page({
   const data = await benefitOverview(getDb(), user.id, today, year);
   return (
     <>
-      <PageHeading
-        eyebrow="CARD BENEFITS"
-        title="卡权益返还"
-        description="查看每张卡的报销项目与状态，按年份了解权益使用情况。"
-      />
+      <PageHeading eyebrow="CARD BENEFITS" title="卡权益返还" description="查看每张卡的年度已报销金额。" />
       <BenefitOverview data={data} />
     </>
   );

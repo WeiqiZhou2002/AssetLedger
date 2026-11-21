@@ -825,8 +825,8 @@ it("groups yearly credit names across dates/reference numbers, sorts decimal tot
     { name: "Digital Entertainment Credit", count: 1, total: "9.0000", lastDate: "2025-10-25" },
   ]);
   const html = renderToStaticMarkup(<BenefitDetails card={data.cards[0]} year={data.year} />);
-  expect(html).toContain("2026 年合计");
-  expect(html).toContain("3 次");
+  expect(html).toContain("2026 年已报销");
+  expect(html).not.toContain("3 次");
   expect(html).toContain("60.02");
   expect(html.indexOf("Oura Credit")).toBeLessThan(html.indexOf("Digital Entertainment Credit"));
   expect(html).toContain("按权益类型汇总");
@@ -836,7 +836,7 @@ it("groups yearly credit names across dates/reference numbers, sorts decimal tot
   for (const entry of [first, second, third]) expect(html).toContain(`/activity?entryId=${entry.id}`);
   expect(
     renderToStaticMarkup(<BenefitDetails card={historical.cards[0]} year={historical.year} />),
-  ).toContain("2025 年合计");
+  ).toContain("2025 年已报销");
 });
 
 it("GET benefits returns the page summary, defaults to the owner's local year, and isolates owners", async () => {

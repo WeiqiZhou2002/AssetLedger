@@ -130,7 +130,7 @@ const connection: ComponentProps<typeof ConnectionDisclosure>["connection"] = {
     },
   ],
 };
-it("benefit tiles reuse account classes and open a sheet with annual names, last dates and entry links", () => {
+it("benefit tiles reuse account classes and open a sheet with annual reimbursements and entry links", () => {
   let tree = view(() => BenefitOverview({ data }));
   const all = elements(tree);
   expect(all.some((node) => node.props.className === accountTileGrid)).toBe(true);
@@ -139,14 +139,16 @@ it("benefit tiles reuse account classes and open a sheet with annual names, last
   let html = renderToStaticMarkup(tree);
   expect(html).toContain("Example Bank · •••• 1234");
   expect(html).toContain('href="/benefits?year=2025"');
-  expect(html).toContain("近 12 月");
+  expect(html).not.toContain("近 12 月");
+  expect(html).toContain("2026 年已报销");
+  expect(html).toContain("$30</span>");
   expect(html).not.toContain('role="dialog"');
   tile.props.onClick!();
   tree = view(() => BenefitOverview({ data }));
   html = renderToStaticMarkup(tree);
   expect(html).toContain('role="dialog"');
-  expect(html).toContain("2 次");
-  expect(html).toContain("最近 2026-10-22");
+  expect(html).toContain("2026-10-22 · ");
+  expect(html).not.toContain("目录外的权益返还");
   expect(html).toContain("/activity?entryId=synthetic-entry");
   expect(html).not.toContain("/activity?entryId=old-entry");
   elements(tree).find((node) => node.type === FormSheet)!.props.onOpenChange!(false);
